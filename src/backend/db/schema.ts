@@ -23,6 +23,7 @@ export * from "./schemas/hitl-proposals";
 export * from "./schemas/mcp-logs";
 
 export * from "./schemas/dashboard-metrics";
+export * from "./schemas/data-platform";
 
 // ---------------------------------------------------------------------------
 // Domain tables

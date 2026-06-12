@@ -174,7 +174,7 @@
         "successful SELECT returns typed rows + metrics",
         "error responses are mapped, not thrown opaquely"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P1-2",
@@ -190,7 +190,7 @@
       "acceptance": [
         "namespaces and tables returned for the CSLB bucket"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P1-3",
@@ -207,7 +207,7 @@
         "address lookup returns permit rows",
         "permit_number lookup returns a record"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P1-4",
@@ -226,7 +226,7 @@
         "LIMIT capped at 10000",
         "OFFSET/OVER rejected with message"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P1-5",
@@ -246,7 +246,8 @@
         "schema-browser endpoints work",
         "routes appear in /openapi.json"
       ],
-      "status": "todo"
+      "status": "done",
+      "note": "Implemented + typechecked. Live R2 SQL verification pending R2_SQL_TOKEN secret (catalog + SODA paths verifiable now)."
     },
     {
       "id": "P1-6",
@@ -263,7 +264,7 @@
         "address and permit-number lookups return live SODA data",
         "route in /openapi.json"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P2-1",
@@ -468,7 +469,8 @@
         "surfaces pipeline status when applicable",
         "human-readable interpretation included"
       ],
-      "status": "todo"
+      "status": "done",
+      "note": "Implemented + typechecked. Live R2 SQL verification pending R2_SQL_TOKEN secret (catalog + SODA paths verifiable now)."
     },
     {
       "id": "P5-2",

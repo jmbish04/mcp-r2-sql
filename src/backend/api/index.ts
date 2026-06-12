@@ -33,6 +33,9 @@ import { notificationsRouter } from "./routes/notifications";
 import { projectsRouter } from "./routes/projects";
 import { seedRouter } from "./routes/seed";
 import { settingsRouter } from "./routes/settings";
+import { diagnosticsRouter } from "./routes/diagnostics";
+import { permitsRouter } from "./routes/permits";
+import { r2Router } from "./routes/r2";
 import { tasksRouter } from "./routes/tasks";
 import { teamNotesRouter } from "./routes/team-notes";
 import { webhooksRouter } from "./routes/webhooks";
@@ -124,6 +127,11 @@ app.route("/api/activity", activityRouter);
 app.route("/api/notifications", notificationsRouter);
 app.route("/api/dashboard", dashboardRouter);
 app.route("/api/seed", seedRouter);
+
+// Data-platform APIs (R2 SQL warehouse + SF permits + diagnostics)
+app.route("/api/r2", r2Router);
+app.route("/api/permits", permitsRouter);
+app.route("/api/diagnostics", diagnosticsRouter);
 
 app.route("/api/__client-error", clientErrorRouter);
 
