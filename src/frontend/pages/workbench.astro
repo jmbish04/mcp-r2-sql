@@ -1,0 +1,33 @@
+---
+/**
+ * Query Workbench page — SQL editor + results + Workers AI actions on the
+ * left, the ChatBroker-backed analytics agent on the right. The two islands
+ * share context via `warehouse:*` CustomEvents (agent-run queries populate
+ * the workbench; "Ask agent" routes the editor's SQL into the chat).
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { QueryWorkbench, AssistantPanel } from "@/components/warehouse";
+---
+
+<BaseLayout
+  title="Query Workbench"
+  description="Run guarded R2 SQL queries against the warehouse with NL→SQL drafting, interpretation, anomaly detection, and suggested next queries."
+>
+  <main class="container mx-auto flex max-w-[96rem] flex-col gap-6 px-4 py-10">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">🧪</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Query Workbench</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Read-only R2 SQL against <code>sf_dbi.*</code> — LIMIT enforced, scan metrics surfaced.
+        Draft with NL→SQL, then interpret, scan for anomalies, or take a suggested next step.
+      </p>
+    </header>
+
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_26rem]">
+      <QueryWorkbench client:load />
+      <AssistantPanel client:load />
+    </div>
+  </main>
+</BaseLayout>

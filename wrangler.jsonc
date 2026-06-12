@@ -1,6 +1,9 @@
 {
   "name": "mcp-r2-sql",
-  "main": "dist/_worker.js/index.js",
+  // Source worker entry — built by @cloudflare/vite-plugin during
+  // `astro build` (adapter v13 flow). The deployable output config is
+  // emitted into dist/ by the build.
+  "main": "src/worker.ts",
   "compatibility_date": "2026-05-25",
   "compatibility_flags": ["nodejs_compat"],
   "upload_source_maps": true,
@@ -23,7 +26,8 @@
   },
   "assets": {
     "binding": "ASSETS",
-    "directory": "./dist",
+    // No `directory` here: the Cloudflare Vite plugin manages the client
+    // asset output and sets the directory in the emitted deploy config.
     "run_worker_first": true,
     "not_found_handling": "404-page",
   },

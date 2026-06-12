@@ -1,0 +1,31 @@
+---
+/**
+ * Vetting Tool page — three live vetting modes behind shadcn Dialogs:
+ * contractor/architect/engineer (R2 SQL warehouse), address → permit history
+ * (SF SODA), and permit number → detail (SF SODA), with warehouse firm
+ * cross-links from permit results.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { VettingTool } from "@/components/warehouse";
+---
+
+<BaseLayout
+  title="Vetting Tool"
+  description="Vet contractors, architects, and engineers against SF permit history, and look up any address or permit number live."
+>
+  <main class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-10">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">🔎</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Vetting Tool</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Pick a tool — each opens a dialog with the inputs it needs and returns live results.
+        Firm vetting reads the R2 SQL warehouse (<code>sf_dbi.permit_contractors</code>); address and
+        permit lookups hit the public SF SODA permits API in real time.
+      </p>
+    </header>
+
+    <VettingTool client:load />
+  </main>
+</BaseLayout>

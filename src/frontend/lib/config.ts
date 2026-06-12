@@ -27,9 +27,9 @@ export type SiteConfig = {
 };
 
 export const siteConfig: SiteConfig = {
-  name: "Cloudflare Edge Showcase",
+  name: "R2 SQL Analytics",
   description:
-    "Multi-page edge frontend showcase using Astro, React, Shadcn UI, and assistant-ui with Cloudflare Agents SDK",
+    "Analytics over the cslb-master-licenses-sql R2 Data Catalog warehouse — guarded R2 SQL queries, Workers AI NL→SQL, dashboards, and contractor/permit vetting.",
   url: "https://example.com",
   author: {
     name: "Author",
@@ -39,13 +39,15 @@ export const siteConfig: SiteConfig = {
     github: "https://github.com",
   },
   navItems: [
-    { href: "/", label: "Overview" },
-    { href: "/dashboard", label: "Dashboard" },
+    { href: "/", label: "Warehouse" },
+    { href: "/workbench", label: "Workbench" },
+    { href: "/vetting", label: "Vetting" },
   ],
   navGroups: [
     {
       label: "Workspace",
       items: [
+        { href: "/dashboard", label: "Demo Dashboard" },
         { href: "/projects", label: "Projects" },
         { href: "/tasks/board", label: "Task Board" },
         { href: "/tasks", label: "Tasks" },
