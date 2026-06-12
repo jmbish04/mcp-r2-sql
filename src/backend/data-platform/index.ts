@@ -10,3 +10,4 @@ export * from "./catalog";
 export * from "./soda";
 export * from "./schema-info";
 export * from "./log";
+export * from "./vetting";

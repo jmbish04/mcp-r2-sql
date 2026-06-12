@@ -375,7 +375,8 @@
         "agent interprets the returned result set",
         "tools callable end-to-end"
       ],
-      "status": "todo"
+      "status": "done",
+      "note": "Tools live in src/backend/ai/agents/analytics/ and are wired into ChatBroker.onChatMessage. WORKER_LOADERS deviation: no dynamic/sandboxed execution needed - all tools are typed pre-audited server functions behind the SQL guard; noted in AGENTS.md."
     },
     {
       "id": "P4-1",

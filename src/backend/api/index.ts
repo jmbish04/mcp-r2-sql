@@ -38,6 +38,7 @@ import { diagnosticsRouter } from "./routes/diagnostics";
 import { permitsRouter } from "./routes/permits";
 import { r2Router } from "./routes/r2";
 import { tasksRouter } from "./routes/tasks";
+import { vettingRouter } from "./routes/vetting";
 import { teamNotesRouter } from "./routes/team-notes";
 import { webhooksRouter } from "./routes/webhooks";
 
@@ -134,6 +135,7 @@ app.route("/api/r2", r2Router);
 app.route("/api/permits", permitsRouter);
 app.route("/api/diagnostics", diagnosticsRouter);
 app.route("/api/ai", aiRouter);
+app.route("/api/vetting", vettingRouter);
 
 app.route("/api/__client-error", clientErrorRouter);
 

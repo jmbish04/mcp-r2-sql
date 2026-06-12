@@ -11,15 +11,10 @@
  */
 
 import { AIChatAgent } from "@cloudflare/ai-chat";
-import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
+import { convertToModelMessages, stepCountIs, streamText, type ToolSet, type UIMessage } from "ai";
 
+import { analyticsSystemPrompt, buildAnalyticsTools } from "@/backend/ai/agents/analytics";
 import { getChatModel } from "@/backend/ai/providers/ai-sdk";
-
-const SYSTEM_PROMPT = [
-  "You are the in-app assistant for the Cloudflare Edge Showcase.",
-  "Reply concisely. Prefer short paragraphs and code blocks for code.",
-  "Never invent Cloudflare bindings; cite the user's wrangler.jsonc when asked.",
-].join(" ");
 
 export class ChatBroker extends AIChatAgent<Env> {
   static docsMetadata() {
@@ -44,8 +39,15 @@ export class ChatBroker extends AIChatAgent<Env> {
   async onChatMessage(onFinish: Parameters<AIChatAgent<Env>["onChatMessage"]>[0]) {
     const result = streamText({
       model: getChatModel(this.env),
-      system: SYSTEM_PROMPT,
+      system: analyticsSystemPrompt(),
       messages: await convertToModelMessages(this.messages as UIMessage[]),
+      // Analytics toolkit: run_query / nl_to_sql / describe_schema /
+      // interpret_results / detect_anomalies / suggest_queries /
+      // lookup_permits / vet_contractor — all guard-enforced server-side.
+      // Cast to ToolSet: AIChatAgent's onFinish is typed against the generic
+      // ToolSet, which is structurally incompatible with the inferred
+      // specific tool map (same pattern as the Cloudflare agents starter).
+      tools: buildAnalyticsTools(this.env) as ToolSet,
       stopWhen: stepCountIs(8),
       onFinish,
     });
