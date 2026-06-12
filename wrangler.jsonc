@@ -87,6 +87,14 @@
     },
   ],
   "vars": {
+    // --- R2 Data Catalog / R2 SQL warehouse (see docs/cslb-schema.json) ---
+    "R2_ACCOUNT_ID": "b3304b14848de15c72c24a14b0cd187d",
+    "R2_BUCKET": "cslb-master-licenses-sql",
+    "R2_WAREHOUSE": "b3304b14848de15c72c24a14b0cd187d_cslb-master-licenses-sql",
+    "R2_CATALOG_URI": "https://catalog.cloudflarestorage.com/b3304b14848de15c72c24a14b0cd187d/cslb-master-licenses-sql",
+    "R2_NAMESPACE": "sf_dbi",
+    // SF Building Permits SODA API (public, no auth)
+    "SODA_PERMITS_URL": "https://data.sfgov.org/resource/i98e-djp9.json",
     "AI_GATEWAY_ID": "default-gateway",
     "MODEL_CHAT": "@cf/openai/gpt-oss-120b",
     "MODEL_EXTRACT": "@cf/openai/gpt-oss-120b",

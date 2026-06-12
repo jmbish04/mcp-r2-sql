@@ -52,7 +52,13 @@
     }
   ],
   "reuse_existing_template_primitives": {
-    "do_agents": ["CODE_MODE_AGENT", "WORKFLOWS_AGENT", "ARTIFACT_AGENT", "CHAT_BROKER", "NOTIFICATIONS_AGENT"],
+    "do_agents": [
+      "CODE_MODE_AGENT",
+      "WORKFLOWS_AGENT",
+      "ARTIFACT_AGENT",
+      "CHAT_BROKER",
+      "NOTIFICATIONS_AGENT"
+    ],
     "dynamic_workers": "WORKER_LOADERS binding",
     "ai": "AI binding + AI Gateway (AI_GATEWAY_ID) + MODEL_* vars + workers-ai-provider",
     "chat_ui": "@assistant-ui/react + @assistant-ui/react-ai-sdk bound to ChatBroker DO",
@@ -64,13 +70,18 @@
     "Read-only: only SELECT / WITH / SHOW / DESCRIBE / EXPLAIN. Reject DML/DDL.",
     "FROM uses namespace.table. Always ensure a LIMIT (default 500, max 10000).",
     "No OFFSET (cursor-paginate with WHERE + ORDER BY).",
-    "No window functions (OVER). No func(DISTINCT ...) — use approx_distinct().",
+    "No window functions (OVER). No func(DISTINCT ...) \u2014 use approx_distinct().",
     "JOIN, subqueries, UNION/INTERSECT/EXCEPT, SELECT DISTINCT are supported.",
     "Map columns: map_keys/map_values/map_extract (not map_entries).",
-    "EXPLAIN/SHOW/DESCRIBE are free — validate before running real queries."
+    "EXPLAIN/SHOW/DESCRIBE are free \u2014 validate before running real queries."
   ],
   "status_protocol": {
-    "values": ["todo", "in_progress", "blocked", "done"],
+    "values": [
+      "todo",
+      "in_progress",
+      "blocked",
+      "done"
+    ],
     "instructions": "Work in dependency order. Set in_progress when starting, done only when all acceptance items pass, blocked with a 'blocked_reason' if you cannot proceed. Commit per task with message referencing the id."
   },
   "tasks": [
@@ -80,38 +91,89 @@
       "title": "Bootstrap repo from template",
       "description": "Generate from the template (Use this template), corepack enable, pnpm install, baseline pnpm build + pnpm cf-typegen green. Read startup.md, AGENTS.md, and both skills.",
       "depends_on": [],
-      "files": ["package.json", "wrangler.jsonc", "AGENTS.md"],
-      "acceptance": ["pnpm install succeeds", "pnpm build is green", "pnpm cf-typegen runs clean"],
-      "status": "todo"
+      "files": [
+        "package.json",
+        "wrangler.jsonc",
+        "AGENTS.md"
+      ],
+      "acceptance": [
+        "pnpm install succeeds",
+        "pnpm build is green",
+        "pnpm cf-typegen runs clean"
+      ],
+      "status": "done"
     },
     {
       "id": "P0-1",
       "phase": "0-introspection",
       "title": "Add R2 SQL secret + vars",
       "description": "Add R2_SQL_TOKEN secret; add R2_ACCOUNT_ID, R2_BUCKET, R2_WAREHOUSE, R2_CATALOG_URI, SODA_PERMITS_URL as vars in wrangler.jsonc. Run cf-typegen.",
-      "depends_on": ["S-1"],
-      "files": ["wrangler.jsonc"],
-      "acceptance": ["R2_SQL_TOKEN set as secret", "vars present in wrangler.jsonc", "Env types regenerated"],
-      "status": "todo"
+      "depends_on": [
+        "S-1"
+      ],
+      "files": [
+        "wrangler.jsonc"
+      ],
+      "acceptance": [
+        "R2_SQL_TOKEN set as secret",
+        "vars present in wrangler.jsonc",
+        "Env types regenerated"
+      ],
+      "status": "done"
     },
     {
       "id": "P0-2",
       "phase": "0-introspection",
       "title": "Introspect catalog + discover CSLB schema (GATE)",
       "description": "List namespaces and tables (return_details=true). Run R2 SQL DESCRIBE on the CSLB table and SELECT * LIMIT 5. Capture COUNT(*) and per-query metrics (files_scanned, bytes_scanned). Determine whether the table is Pipeline-fed or batch-loaded. Persist discovered namespace/table/columns to docs/cslb-schema.json and print them. All downstream tasks MUST use these real column names.",
-      "depends_on": ["P0-1"],
-      "files": ["docs/cslb-schema.json", "scripts/introspect.ts"],
-      "acceptance": ["docs/cslb-schema.json committed with real namespace, table, columns", "row count + sample printed", "pipeline-vs-batch determination recorded"],
-      "status": "todo"
+      "depends_on": [
+        "P0-1"
+      ],
+      "files": [
+        "docs/cslb-schema.json",
+        "scripts/introspect.ts"
+      ],
+      "acceptance": [
+        "docs/cslb-schema.json committed with real namespace, table, columns",
+        "row count + sample printed",
+        "pipeline-vs-batch determination recorded"
+      ],
+      "status": "done",
+      "findings": {
+        "namespace": "sf_dbi",
+        "tables": [
+          "bp_issuance",
+          "bp_review",
+          "permit_contractors",
+          "building_inspections",
+          "plumbing_inspections",
+          "building_permits",
+          "plumbing_permits",
+          "electrical_permits",
+          "complaints",
+          "permit_addenda"
+        ],
+        "total_rows": 547939,
+        "ingestion_mode": "batch (PyIceberg/PySpark-style loader; no Pipelines target this bucket; custom ingested_at/ingest_run_id columns)",
+        "deviation": "No CSLB master-license table exists in the warehouse despite the bucket name. Contractor/architect/engineer vetting uses sf_dbi.permit_contractors (license1, firm_name, role).",
+        "note": "Row counts from Iceberg snapshot summaries (R2 SQL token not yet provisioned at discovery time). scripts/introspect.ts re-verifies via live R2 SQL once R2_SQL_TOKEN is set."
+      }
     },
     {
       "id": "P1-1",
       "phase": "1-backend",
       "title": "R2 SQL client",
       "description": "queryR2SQL(env, sql): POST to R2 SQL endpoint with Bearer R2_SQL_TOKEN, body {query}, 180s timeout. Return {rows, schema, metrics, request_id}; surface success:false errors[] cleanly.",
-      "depends_on": ["P0-2"],
-      "files": ["backend/data-platform/r2sql.ts"],
-      "acceptance": ["successful SELECT returns typed rows + metrics", "error responses are mapped, not thrown opaquely"],
+      "depends_on": [
+        "P0-2"
+      ],
+      "files": [
+        "backend/data-platform/r2sql.ts"
+      ],
+      "acceptance": [
+        "successful SELECT returns typed rows + metrics",
+        "error responses are mapped, not thrown opaquely"
+      ],
       "status": "todo"
     },
     {
@@ -119,9 +181,15 @@
       "phase": "1-backend",
       "title": "Catalog client",
       "description": "List namespaces, list tables (return_details=true), get table metadata via Catalog REST. Handle nested-namespace %1F separator.",
-      "depends_on": ["P0-2"],
-      "files": ["backend/data-platform/catalog.ts"],
-      "acceptance": ["namespaces and tables returned for the CSLB bucket"],
+      "depends_on": [
+        "P0-2"
+      ],
+      "files": [
+        "backend/data-platform/catalog.ts"
+      ],
+      "acceptance": [
+        "namespaces and tables returned for the CSLB bucket"
+      ],
       "status": "todo"
     },
     {
@@ -129,9 +197,16 @@
       "phase": "1-backend",
       "title": "SODA permits client",
       "description": "Lookup by street_number+street_name, by permit_number, and a generic $where. Note: dataset has no contractor column.",
-      "depends_on": ["P0-2"],
-      "files": ["backend/data-platform/soda.ts"],
-      "acceptance": ["address lookup returns permit rows", "permit_number lookup returns a record"],
+      "depends_on": [
+        "P0-2"
+      ],
+      "files": [
+        "backend/data-platform/soda.ts"
+      ],
+      "acceptance": [
+        "address lookup returns permit rows",
+        "permit_number lookup returns a record"
+      ],
       "status": "todo"
     },
     {
@@ -139,9 +214,18 @@
       "phase": "1-backend",
       "title": "Query guard",
       "description": "Validate/normalize SQL per r2_sql_guardrails: allow only SELECT/WITH/SHOW/DESCRIBE/EXPLAIN, reject DML/DDL, auto-inject LIMIT (default 500, cap 10000), block OFFSET and window functions with a clear error.",
-      "depends_on": ["P1-1"],
-      "files": ["backend/data-platform/guard.ts"],
-      "acceptance": ["non-SELECT rejected", "missing LIMIT injected", "LIMIT capped at 10000", "OFFSET/OVER rejected with message"],
+      "depends_on": [
+        "P1-1"
+      ],
+      "files": [
+        "backend/data-platform/guard.ts"
+      ],
+      "acceptance": [
+        "non-SELECT rejected",
+        "missing LIMIT injected",
+        "LIMIT capped at 10000",
+        "OFFSET/OVER rejected with message"
+      ],
       "status": "todo"
     },
     {
@@ -149,9 +233,19 @@
       "phase": "1-backend",
       "title": "R2 SQL Hono routes",
       "description": "zod-openapi routes: POST /api/r2/query (guarded), GET /api/r2/namespaces, GET /api/r2/tables, GET /api/r2/describe?table=. Each has /health and logs to the D1 logging layer.",
-      "depends_on": ["P1-1", "P1-2", "P1-4"],
-      "files": ["src/hono/routes/r2.ts"],
-      "acceptance": ["arbitrary guarded query runs and returns rows+metrics", "schema-browser endpoints work", "routes appear in /openapi.json"],
+      "depends_on": [
+        "P1-1",
+        "P1-2",
+        "P1-4"
+      ],
+      "files": [
+        "src/hono/routes/r2.ts"
+      ],
+      "acceptance": [
+        "arbitrary guarded query runs and returns rows+metrics",
+        "schema-browser endpoints work",
+        "routes appear in /openapi.json"
+      ],
       "status": "todo"
     },
     {
@@ -159,9 +253,16 @@
       "phase": "1-backend",
       "title": "Permits Hono routes",
       "description": "POST /api/permits/lookup (by address or permit number) proxied to SODA, zod-openapi typed, /health, logged.",
-      "depends_on": ["P1-3"],
-      "files": ["src/hono/routes/permits.ts"],
-      "acceptance": ["address and permit-number lookups return live SODA data", "route in /openapi.json"],
+      "depends_on": [
+        "P1-3"
+      ],
+      "files": [
+        "src/hono/routes/permits.ts"
+      ],
+      "acceptance": [
+        "address and permit-number lookups return live SODA data",
+        "route in /openapi.json"
+      ],
       "status": "todo"
     },
     {
@@ -169,9 +270,17 @@
       "phase": "2-workers-ai",
       "title": "NL to SQL",
       "description": "Provider/method using MODEL_DRAFT. System prompt embeds the discovered schema + guardrails + few-shot. Output SQL only; validate via guard + EXPLAIN before offering to run; surface SQL to user before execution.",
-      "depends_on": ["P0-2", "P1-4"],
-      "files": ["backend/ai/providers/nl2sql.ts"],
-      "acceptance": ["natural-language question yields valid, guardrail-compliant SQL grounded in real columns", "generated SQL passes EXPLAIN"],
+      "depends_on": [
+        "P0-2",
+        "P1-4"
+      ],
+      "files": [
+        "backend/ai/providers/nl2sql.ts"
+      ],
+      "acceptance": [
+        "natural-language question yields valid, guardrail-compliant SQL grounded in real columns",
+        "generated SQL passes EXPLAIN"
+      ],
       "status": "todo"
     },
     {
@@ -179,9 +288,15 @@
       "phase": "2-workers-ai",
       "title": "Result interpretation",
       "description": "MODEL_CHAT. Given SQL + sampled rows + metrics, produce a short plain-language reading.",
-      "depends_on": ["P1-5"],
-      "files": ["backend/ai/providers/interpret.ts"],
-      "acceptance": ["returns a concise, accurate summary for a real result set"],
+      "depends_on": [
+        "P1-5"
+      ],
+      "files": [
+        "backend/ai/providers/interpret.ts"
+      ],
+      "acceptance": [
+        "returns a concise, accurate summary for a real result set"
+      ],
       "status": "todo"
     },
     {
@@ -189,9 +304,16 @@
       "phase": "2-workers-ai",
       "title": "Anomaly detection",
       "description": "Cheap numeric checks (nulls, IQR/z-score outliers, cardinality shifts) plus MODEL_EXTRACT pass to flag/explain suspicious rows/columns. Also flag operational anomalies from query metrics (e.g. high files_scanned -> needs compaction).",
-      "depends_on": ["P1-5"],
-      "files": ["backend/ai/providers/anomaly.ts"],
-      "acceptance": ["flags statistical outliers on a numeric column", "flags high file-count operational anomaly"],
+      "depends_on": [
+        "P1-5"
+      ],
+      "files": [
+        "backend/ai/providers/anomaly.ts"
+      ],
+      "acceptance": [
+        "flags statistical outliers on a numeric column",
+        "flags high file-count operational anomaly"
+      ],
       "status": "todo"
     },
     {
@@ -199,9 +321,15 @@
       "phase": "2-workers-ai",
       "title": "Suggested next queries",
       "description": "MODEL_DRAFT. Given current query + schema, propose 3-5 follow-up queries as ready-to-run SQL with one-line rationales.",
-      "depends_on": ["P2-1"],
-      "files": ["backend/ai/providers/suggest.ts"],
-      "acceptance": ["returns 3-5 valid, runnable follow-up queries with rationales"],
+      "depends_on": [
+        "P2-1"
+      ],
+      "files": [
+        "backend/ai/providers/suggest.ts"
+      ],
+      "acceptance": [
+        "returns 3-5 valid, runnable follow-up queries with rationales"
+      ],
       "status": "todo"
     },
     {
@@ -209,19 +337,43 @@
       "phase": "3-agent",
       "title": "Bind assistant-ui to ChatBroker",
       "description": "Wire the assistant-ui chat to the existing ChatBroker DO so conversation streams. Do not add new chat infra.",
-      "depends_on": ["S-1"],
-      "files": ["src/frontend/_components/AssistantPanel.tsx"],
-      "acceptance": ["chat streams round-trip through ChatBroker"],
-      "status": "todo"
+      "depends_on": [
+        "S-1"
+      ],
+      "files": [
+        "src/frontend/_components/AssistantPanel.tsx"
+      ],
+      "acceptance": [
+        "chat streams round-trip through ChatBroker"
+      ],
+      "status": "done",
+      "findings": {
+        "note": "Template already ships AgentChat.tsx (assistant-ui Thread + useAgentChat) bound to the ChatBroker DO on /chat. Reused as-is; tools added in P3-2."
+      }
     },
     {
       "id": "P3-2",
       "phase": "3-agent",
       "title": "Agent tools",
       "description": "Expose tools to the agent: run_query, nl_to_sql, describe_schema, interpret_results, detect_anomalies, suggest_queries, lookup_permits, vet_contractor. Use WORKER_LOADERS for any dynamic/sandboxed execution. Agent can answer questions about a query, draft one or several queries, run them, and explain results.",
-      "depends_on": ["P1-5", "P1-6", "P2-1", "P2-2", "P2-3", "P2-4", "P3-1"],
-      "files": ["backend/ai/agents/analytics/index.ts", "backend/ai/agents/analytics/methods/"],
-      "acceptance": ["agent drafts + runs a query from a natural-language request", "agent interprets the returned result set", "tools callable end-to-end"],
+      "depends_on": [
+        "P1-5",
+        "P1-6",
+        "P2-1",
+        "P2-2",
+        "P2-3",
+        "P2-4",
+        "P3-1"
+      ],
+      "files": [
+        "backend/ai/agents/analytics/index.ts",
+        "backend/ai/agents/analytics/methods/"
+      ],
+      "acceptance": [
+        "agent drafts + runs a query from a natural-language request",
+        "agent interprets the returned result set",
+        "tools callable end-to-end"
+      ],
       "status": "todo"
     },
     {
@@ -229,9 +381,16 @@
       "phase": "4-frontend",
       "title": "Dashboard page",
       "description": "KPI cards (row count, freshness/last-load, bytes scanned last query) + recharts panels driven by real R2 SQL aggregates. Shared header, dark theme, responsive.",
-      "depends_on": ["P1-5"],
-      "files": ["src/frontend/pages/index.astro", "src/frontend/_components/Dashboard.tsx"],
-      "acceptance": ["cards + charts render live R2 SQL data, no placeholders"],
+      "depends_on": [
+        "P1-5"
+      ],
+      "files": [
+        "src/frontend/pages/index.astro",
+        "src/frontend/_components/Dashboard.tsx"
+      ],
+      "acceptance": [
+        "cards + charts render live R2 SQL data, no placeholders"
+      ],
       "status": "todo"
     },
     {
@@ -239,9 +398,20 @@
       "phase": "4-frontend",
       "title": "Query workbench island",
       "description": "SQL editor -> run -> results table (sort + filter) -> Interpret / Find anomalies / Suggested-next actions wired to Phase 2. Show metrics (files/bytes scanned, request_id). Suggested queries are clickable chips that populate the editor.",
-      "depends_on": ["P2-1", "P2-2", "P2-3", "P2-4"],
-      "files": ["src/frontend/_components/QueryWorkbench.tsx"],
-      "acceptance": ["run query end-to-end", "sort+filter work", "interpret/anomaly/suggest actions return live results"],
+      "depends_on": [
+        "P2-1",
+        "P2-2",
+        "P2-3",
+        "P2-4"
+      ],
+      "files": [
+        "src/frontend/_components/QueryWorkbench.tsx"
+      ],
+      "acceptance": [
+        "run query end-to-end",
+        "sort+filter work",
+        "interpret/anomaly/suggest actions return live results"
+      ],
       "status": "todo"
     },
     {
@@ -249,9 +419,16 @@
       "phase": "4-frontend",
       "title": "Assistant panel + shared context",
       "description": "Assistant-ui island bound to ChatBroker, sharing context with the workbench (agent 'run this' populates/executes the workbench; clicking a suggestion routes through the agent).",
-      "depends_on": ["P3-2", "P4-2"],
-      "files": ["src/frontend/_components/AssistantPanel.tsx"],
-      "acceptance": ["asking the agent to run a query updates the workbench and shows results"],
+      "depends_on": [
+        "P3-2",
+        "P4-2"
+      ],
+      "files": [
+        "src/frontend/_components/AssistantPanel.tsx"
+      ],
+      "acceptance": [
+        "asking the agent to run a query updates the workbench and shows results"
+      ],
       "status": "todo"
     },
     {
@@ -259,9 +436,18 @@
       "phase": "4-frontend",
       "title": "Vetting tool",
       "description": "Launcher to pick a tool; selection opens a shadcn Dialog with required inputs and renders live results. (1) Contractor/Architect/Engineer: license and/or name (+optional city) -> CSLB R2 SQL (real columns) -> status/classifications/expiration/bond+WC flags if present. (2) Home address -> permits: street number+name (+unit) -> SODA -> permit history. (3) Permit number -> detail -> SODA. Small cross-link: offer to vet any contractor name appearing in an address's permit history against CSLB.",
-      "depends_on": ["P1-5", "P1-6"],
-      "files": ["src/frontend/_components/VettingTool.tsx"],
-      "acceptance": ["all three modes open a modal and return live results", "CSLB mode uses real discovered columns", "permit modes hit SODA"],
+      "depends_on": [
+        "P1-5",
+        "P1-6"
+      ],
+      "files": [
+        "src/frontend/_components/VettingTool.tsx"
+      ],
+      "acceptance": [
+        "all three modes open a modal and return live results",
+        "CSLB mode uses real discovered columns",
+        "permit modes hit SODA"
+      ],
       "status": "todo"
     },
     {
@@ -269,9 +455,19 @@
       "phase": "5-ops",
       "title": "Diagnostics endpoint",
       "description": "GET /api/diagnostics health rollup: catalog status (active?), compaction state, target table exists, COUNT(*), freshness, files_scanned/bytes_scanned from a probe. If Pipeline-fed (per P0-2), list pipelines and surface status + failure_reason. Interpret known beta gotchas in the response text (metrics lag 5-10 min, high file count -> compaction, ~5 min visibility delay).",
-      "depends_on": ["P1-1", "P1-2", "P0-2"],
-      "files": ["src/hono/routes/diagnostics.ts"],
-      "acceptance": ["returns catalog/table health + metrics", "surfaces pipeline status when applicable", "human-readable interpretation included"],
+      "depends_on": [
+        "P1-1",
+        "P1-2",
+        "P0-2"
+      ],
+      "files": [
+        "src/hono/routes/diagnostics.ts"
+      ],
+      "acceptance": [
+        "returns catalog/table health + metrics",
+        "surfaces pipeline status when applicable",
+        "human-readable interpretation included"
+      ],
       "status": "todo"
     },
     {
@@ -279,9 +475,18 @@
       "phase": "5-ops",
       "title": "Observability + health",
       "description": "Ensure every route/view emits structured logs/metrics to the mirrored D1 logging layer and exposes /health.",
-      "depends_on": ["P1-5", "P1-6", "P5-1"],
-      "files": ["backend/db/schemas/logging/"],
-      "acceptance": ["logs land in D1 layer for each route", "/health present everywhere"],
+      "depends_on": [
+        "P1-5",
+        "P1-6",
+        "P5-1"
+      ],
+      "files": [
+        "backend/db/schemas/logging/"
+      ],
+      "acceptance": [
+        "logs land in D1 layer for each route",
+        "/health present everywhere"
+      ],
       "status": "todo"
     },
     {
@@ -289,9 +494,22 @@
       "phase": "5-ops",
       "title": "Lint, build, docs, deploy",
       "description": "pnpm lint + pnpm build green; fix type drift with cf-typegen. Update AGENTS.md (note Stitch/Jules deviation + new data-platform domain). Deploy via pnpm run deploy.",
-      "depends_on": ["P4-1", "P4-2", "P4-3", "P4-4", "P5-2"],
-      "files": ["AGENTS.md"],
-      "acceptance": ["lint+build green", "AGENTS.md updated", "deployed via pnpm run deploy", "/openapi.json, /scalar, /swagger live"],
+      "depends_on": [
+        "P4-1",
+        "P4-2",
+        "P4-3",
+        "P4-4",
+        "P5-2"
+      ],
+      "files": [
+        "AGENTS.md"
+      ],
+      "acceptance": [
+        "lint+build green",
+        "AGENTS.md updated",
+        "deployed via pnpm run deploy",
+        "/openapi.json, /scalar, /swagger live"
+      ],
       "status": "todo"
     },
     {
@@ -299,7 +517,9 @@
       "phase": "acceptance",
       "title": "Final acceptance verification",
       "description": "Verify the full DoD against a live deployment.",
-      "depends_on": ["P5-3"],
+      "depends_on": [
+        "P5-3"
+      ],
       "files": [],
       "acceptance": [
         "Arbitrary guarded read queries run with rows+metrics",

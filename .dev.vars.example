@@ -1,0 +1,8 @@
+# Copy to .dev.vars for local dev. NEVER commit real values.
+#
+# R2 SQL bearer token. Create at: Cloudflare dashboard -> R2 -> Manage R2 API tokens.
+# Required scopes (open-beta quirk: Storage Admin R&W is required even for
+# read-only SQL): R2 Storage (Admin Read & Write) + R2 Data Catalog (Read &
+# Write) + R2 SQL (Read).
+# Production: npx wrangler secret put R2_SQL_TOKEN
+R2_SQL_TOKEN=""
