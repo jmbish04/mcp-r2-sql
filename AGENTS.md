@@ -5,6 +5,46 @@
 - Build new views as React islands on top of the existing Astro + Shadcn foundation, using the dark/moody theme system and subtle contrast instead of heavy borders.
 - Enforce Zod validation on backend endpoints, expose OpenAPI v3.1.0 at `/openapi.json`, `/swagger`, and `/scalar`, and keep endpoints strongly typed.
 - Every new service or view must expose `/health` and emit structured logs/metrics into the mirrored D1 logging layer.
+# R2 SQL Analytics App (docs/0001_init) — Build Notes & Deviations
+
+This repo now hosts the **R2 Data Catalog SQL analytics MVP** (see
+`docs/0001_init/TASKS.json` + `docs/cslb-schema.json`). Key facts for future agents:
+
+- **Warehouse reality (Phase-0 gate)**: despite the bucket name
+  (`cslb-master-licenses-sql`), there is **no CSLB master-license table**. All data
+  lives in namespace `sf_dbi` (10 batch-loaded SF DBI tables, ~548k rows; columns in
+  `docs/cslb-schema.json`, mirrored in `src/backend/data-platform/schema-data.ts`).
+  Contractor vetting uses `sf_dbi.permit_contractors` (license1/firm_name/role).
+  No Pipelines feed this bucket — ingestion is batch (PyIceberg-style).
+- **Data-platform layer**: `src/backend/data-platform/` (R2 SQL client, catalog REST
+  client, SODA client, SQL guard, vetting queries, D1 `query_logs` logging). Routes:
+  `/api/r2/*`, `/api/permits/*`, `/api/ai/*`, `/api/vetting/*`, `/api/diagnostics`
+  — all zod-openapi typed, each family exposes `/health`, all ops log to D1.
+- **Chat agent**: the existing `ChatBroker` DO now carries the analytics toolkit
+  (`src/backend/ai/agents/analytics/`): run_query, nl_to_sql, describe_schema,
+  interpret_results, detect_anomalies, suggest_queries, lookup_permits,
+  vet_contractor. Frontend: `/workbench` pairs `QueryWorkbench` + `AssistantPanel`
+  islands sharing context via `warehouse:*` CustomEvents.
+- **Secret**: `R2_SQL_TOKEN` (npx wrangler secret put R2_SQL_TOKEN) — scopes:
+  R2 Storage Admin R&W + R2 Data Catalog R&W + R2 SQL Read. Until set, R2 SQL
+  surfaces degrade gracefully with actionable errors; SODA + AI + D1 are live.
+- **DEVIATION — Stitch/Jules ceremony skipped** per the build brief: React islands
+  were built directly on the existing shadcn foundation (speed over mockups).
+- **DEVIATION — WORKER_LOADERS unused** by the analytics agent: all tools are
+  typed, pre-audited server functions behind the SQL guard; there is no untrusted
+  dynamic code to sandbox.
+- **CRITICAL — @astrojs/cloudflare v13 build flow** (migrated 2026-06-12): the
+  adapter is now built on `@cloudflare/vite-plugin`. `wrangler.jsonc` `main` points
+  at **source** (`src/worker.ts`; DO classes re-exported there), the build emits the
+  deployable config at `dist/server/wrangler.json`, and deploy is
+  `wrangler deploy -c dist/server/wrangler.json` (already wired into
+  `pnpm run deploy`). The old `src/_worker.ts` `start()/createExports()` protocol
+  and `platformProxy`/`workerEntryPoint`/`routes` adapter options are **gone** —
+  do not reintroduce them. `vite.esbuild.target = "es2022"` in `astro.config.ts`
+  is REQUIRED: it lowers the Agents SDK `@callable()` TC39 decorators that
+  workerd's V8 cannot parse (removing it breaks build AND dev with
+  "Invalid or unexpected token").
+
 # Agent Workspace Overview
 
 Welcome to the `core-template-cfw-assets-astro-shadcn` template. This is a unified full-stack template combining Cloudflare Workers (Backend & Assets) with Astro and React + Shadcn/ui (Frontend).

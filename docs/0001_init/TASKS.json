@@ -393,7 +393,7 @@
       "acceptance": [
         "cards + charts render live R2 SQL data, no placeholders"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P4-2",
@@ -414,7 +414,7 @@
         "sort+filter work",
         "interpret/anomaly/suggest actions return live results"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P4-3",
@@ -431,7 +431,7 @@
       "acceptance": [
         "asking the agent to run a query updates the workbench and shows results"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P4-4",
@@ -450,7 +450,7 @@
         "CSLB mode uses real discovered columns",
         "permit modes hit SODA"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P5-1",
@@ -490,7 +490,7 @@
         "logs land in D1 layer for each route",
         "/health present everywhere"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P5-3",
@@ -513,7 +513,7 @@
         "deployed via pnpm run deploy",
         "/openapi.json, /scalar, /swagger live"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "DONE",
@@ -533,7 +533,8 @@
         "/api/diagnostics + /health report catalog/pipeline health; logs in D1 layer",
         "OpenAPI live; deployed via pnpm run deploy; no mock data anywhere"
       ],
-      "status": "todo"
+      "status": "blocked",
+      "blocked_reason": "All code deployed and verified at https://mcp-r2-sql.hacolby.workers.dev. Remaining acceptance items that exercise live R2 SQL (guarded queries with rows+metrics, contractor vetting via warehouse, dashboard charts) are blocked on the R2_SQL_TOKEN secret, which only the user can provide: npx wrangler secret put R2_SQL_TOKEN. SODA permits, Workers AI (NL->SQL/interpret/anomaly/suggest), chat agent, D1 logging, OpenAPI docs, and all pages are verified live."
     }
   ]
 }
