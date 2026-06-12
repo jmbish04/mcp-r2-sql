@@ -282,7 +282,7 @@
         "natural-language question yields valid, guardrail-compliant SQL grounded in real columns",
         "generated SQL passes EXPLAIN"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P2-2",
@@ -298,7 +298,7 @@
       "acceptance": [
         "returns a concise, accurate summary for a real result set"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P2-3",
@@ -315,7 +315,7 @@
         "flags statistical outliers on a numeric column",
         "flags high file-count operational anomaly"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P2-4",
@@ -331,7 +331,7 @@
       "acceptance": [
         "returns 3-5 valid, runnable follow-up queries with rationales"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "P3-1",
