@@ -15,10 +15,12 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
 import {
+  guardSql,
   logOperation,
   lookupPermitByNumber,
   lookupPermitsByAddress,
   lookupPermitsWhere,
+  queryR2Sql,
 } from "@/backend/data-platform";
 
 export const permitsRouter = new OpenAPIHono<{ Bindings: Env }>();
@@ -89,6 +91,85 @@ permitsRouter.openapi(
       rows: result.rows,
       error: result.error,
       durationMs: result.durationMs,
+    }, 200);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /detail — full permit record (SODA) + warehouse addenda + firms
+// ---------------------------------------------------------------------------
+
+/** Single-quote-escape a value for an R2 SQL string literal. */
+function sqlLit(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+permitsRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/detail",
+    tags: ["Permits"],
+    summary: "Full permit detail — SODA record + warehouse addenda/review + firms",
+    operationId: "permitDetail",
+    request: {
+      query: z.object({
+        permit_number: z.string().min(1).openapi({ example: "202112011234" }),
+      }),
+    },
+    responses: {
+      200: {
+        description: "Permit record, addenda (review steps), and contractor firms.",
+        content: {
+          "application/json": {
+            schema: z.object({
+              ok: z.boolean(),
+              permit: z.record(z.string(), z.unknown()).nullable(),
+              addenda: z.array(z.record(z.string(), z.unknown())),
+              firms: z.array(z.record(z.string(), z.unknown())),
+              source: z.object({ permit: z.string(), addenda: z.string(), firms: z.string() }),
+              errors: z.array(z.string()),
+            }),
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const permitNumber = c.req.valid("query").permit_number.trim();
+    const errors: string[] = [];
+
+    // 1. Live SODA record (authoritative current state).
+    const soda = await lookupPermitByNumber(c.env, permitNumber);
+    if (!soda.ok && soda.error) errors.push(`SODA: ${soda.error}`);
+
+    // 2. Warehouse addenda (review/plan-check steps) for this permit.
+    const addendaSql = guardSql(
+      `SELECT addenda_number, step, station, department, addenda_status, review_results, arrive, assign_date, start_date, finish_date, approved_date, plan_checked_by, hold_description, processing_hours FROM sf_dbi.permit_addenda WHERE permit_number = ${sqlLit(permitNumber)} ORDER BY addenda_number, start_date LIMIT 500`,
+    );
+    const addenda = addendaSql.allowed ? await queryR2Sql(c.env, addendaSql.sql) : null;
+    if (addenda && !addenda.ok && addenda.errors[0]) errors.push(`addenda: ${addenda.errors[0].message}`);
+
+    // 3. Contractor firms recorded against this permit.
+    const firmsSql = guardSql(
+      `SELECT DISTINCT firm_name, license1, role, firm_city, firm_state FROM sf_dbi.permit_contractors WHERE permit_number = ${sqlLit(permitNumber)} LIMIT 100`,
+    );
+    const firms = firmsSql.allowed ? await queryR2Sql(c.env, firmsSql.sql) : null;
+    if (firms && !firms.ok && firms.errors[0]) errors.push(`firms: ${firms.errors[0].message}`);
+
+    logOperation(c.env, {
+      source: "r2sql", operation: "permit_detail", ok: errors.length === 0, status: 200,
+      durationMs: (addenda?.durationMs ?? 0) + (firms?.durationMs ?? 0), sql: addendaSql.sql,
+      rowsReturned: (addenda?.rows.length ?? 0) + (firms?.rows.length ?? 0),
+      error: errors[0], metadata: { permitNumber },
+    }, c.executionCtx);
+
+    return c.json({
+      ok: errors.length === 0,
+      permit: soda.rows[0] ?? null,
+      addenda: addenda?.rows ?? [],
+      firms: firms?.rows ?? [],
+      source: { permit: "soda", addenda: "sf_dbi.permit_addenda", firms: "sf_dbi.permit_contractors" },
+      errors,
     }, 200);
   },
 );

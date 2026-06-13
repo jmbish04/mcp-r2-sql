@@ -3,19 +3,17 @@
  * get live results.
  *
  * Three modes, all live (no mock data):
- *  1. Contractor / Architect / Engineer — license and/or firm name (+city,
- *     role) → POST /api/vetting/contractor → aggregate SF permit track
+ *  1. Contractor / Architect / Engineer — license and/or firm name, with a
+ *     role dropdown → POST /api/vetting/contractor → aggregate SF permit track
  *     record from the R2 SQL warehouse (sf_dbi.permit_contractors).
  *  2. Address → permit history — street number + name (+unit) →
- *     POST /api/permits/lookup (live SF SODA API).
- *  3. Permit number → detail — POST /api/permits/lookup.
+ *     POST /api/permits/lookup (live SF SODA API), shown in a focused table
+ *     whose permit numbers link into the DBI-style PermitViewer.
+ *  3. Permit number → detail → opens the PermitViewer directly.
  *
- * Cross-link: for any permit in an address's history, "Find firms" queries
- * the warehouse for the firms on that permit, each with a one-click "Vet".
- *
- * Phase-0 deviation (docs/cslb-schema.json): the warehouse has no CSLB
- * master-license table, so mode 1 reports the firm's SF permit track record
- * keyed by CSLB license number rather than CSLB license status.
+ * NOTE: Google-Places address autocomplete (#5) and result maps (#7) are
+ * pending a maps-provider decision; the address mode currently takes manual
+ * street number + name.
  */
 
 "use client";
@@ -35,21 +33,56 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { apiSend } from "@/lib/api";
 import { compactNumber } from "@/lib/format";
 
+import { PermitViewer } from "./PermitViewer";
 import { ResultsTable } from "./ResultsTable";
 import type { PermitsResponse, QueryResponse, VettingResponse } from "./types";
+
+/** Vetting role options for the dropdown. */
+const ROLES = [
+  "contractor",
+  "architect",
+  "structural engineer",
+  "civil engineer",
+  "roofer",
+  "electrician",
+  "hvac",
+  "plumber",
+  "HIS",
+] as const;
+
+/** Format an ISO-ish date string to yyyy-mm-dd (no time). */
+function dateOnly(value: unknown): string {
+  const s = String(value ?? "");
+  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : s || "—";
+}
 
 // ---------------------------------------------------------------------------
 // Mode 1: contractor / architect / engineer
 // ---------------------------------------------------------------------------
 
-function ContractorDialog() {
+function ContractorDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) {
   const [license, setLicense] = useState("");
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
-  const [role, setRole] = useState("");
+  const [role, setRole] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<VettingResponse | null>(null);
 
@@ -93,7 +126,18 @@ function ContractorDialog() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="vet-role">Role (optional)</Label>
-          <Input id="vet-role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="contractor | architect | engineer" />
+          <Select value={role} onValueChange={(v) => setRole(v ?? "")}>
+            <SelectTrigger id="vet-role">
+              <SelectValue placeholder="Any role" />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLES.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <Button onClick={() => void submit()} disabled={busy || (!license.trim() && !name.trim())}>
@@ -112,7 +156,16 @@ function ContractorDialog() {
                 <h4 className="text-sm font-medium">Track-record profile</h4>
                 <ResultsTable rows={result.profile} />
                 <h4 className="text-sm font-medium">Recent permit engagements</h4>
-                <ResultsTable rows={result.recentPermits} />
+                <ResultsTable
+                  rows={result.recentPermits}
+                  rowAction={(row) =>
+                    row.permit_number ? (
+                      <Button size="sm" variant="ghost" onClick={() => onViewPermit(String(row.permit_number))}>
+                        View
+                      </Button>
+                    ) : null
+                  }
+                />
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -130,7 +183,7 @@ function ContractorDialog() {
 }
 
 // ---------------------------------------------------------------------------
-// Modes 2 + 3: address history / permit detail (live SODA) + warehouse cross-link
+// Permit-firms cross-link (vet firms recorded on a permit)
 // ---------------------------------------------------------------------------
 
 function PermitFirms({ permitNumber }: { permitNumber: string }) {
@@ -170,7 +223,7 @@ function PermitFirms({ permitNumber }: { permitNumber: string }) {
     <div className="flex flex-col gap-2 rounded-md bg-muted/30 p-3 ring-1 ring-border/40">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Cross-link: find the firms on permit <code>{permitNumber}</code> in the warehouse and vet them.
+          Firms on permit <code>{permitNumber}</code> (vet any against the warehouse).
         </p>
         <Button size="sm" variant="outline" onClick={() => void findFirms()} disabled={busy}>
           {busy ? "Searching…" : "Find firms"}
@@ -203,17 +256,31 @@ function PermitFirms({ permitNumber }: { permitNumber: string }) {
   );
 }
 
-function AddressDialog() {
+// ---------------------------------------------------------------------------
+// Mode 2: address → permit history (focused table + permit links)
+// ---------------------------------------------------------------------------
+
+/** The trimmed column set requested for the address history table. */
+const ADDRESS_COLUMNS = [
+  "permit_type_definition",
+  "permit_creation_date",
+  "block",
+  "lot",
+  "street_number",
+  "street_name",
+] as const;
+
+function AddressDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) {
   const [streetNumber, setStreetNumber] = useState("");
   const [streetName, setStreetName] = useState("");
   const [unit, setUnit] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PermitsResponse | null>(null);
-  const [crossLink, setCrossLink] = useState<string | null>(null);
+  const [firmsFor, setFirmsFor] = useState<string | null>(null);
 
   const submit = useCallback(async () => {
     setBusy(true);
-    setCrossLink(null);
+    setFirmsFor(null);
     try {
       setResult(await apiSend<PermitsResponse>("POST", "permits/lookup", {
         mode: "address", streetNumber, streetName, unit: unit || undefined,
@@ -226,10 +293,13 @@ function AddressDialog() {
   }, [streetNumber, streetName, unit]);
 
   return (
-    <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+    <DialogContent className="max-h-[85vh] max-w-5xl overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Address → permit history</DialogTitle>
-        <DialogDescription>Live lookup against the SF Building Permits SODA dataset (i98e-djp9).</DialogDescription>
+        <DialogDescription>
+          Live lookup against the SF Building Permits SODA dataset. (Google-Places autocomplete is
+          coming once the maps provider is set — enter the street number and name for now.)
+        </DialogDescription>
       </DialogHeader>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
@@ -253,17 +323,50 @@ function AddressDialog() {
         result.ok ? (
           <div className="flex flex-col gap-3">
             <Badge variant="outline">{result.count} permits</Badge>
-            <ResultsTable
-              rows={result.rows}
-              rowAction={(row) =>
-                row.permit_number ? (
-                  <Button size="sm" variant="outline" onClick={() => setCrossLink(String(row.permit_number))}>
-                    Firms
-                  </Button>
-                ) : null
-              }
-            />
-            {crossLink ? <PermitFirms permitNumber={crossLink} /> : null}
+            <div className="max-h-[28rem] overflow-auto rounded-md ring-1 ring-border/40">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card">
+                  <TableRow>
+                    <TableHead className="text-xs">permit_number</TableHead>
+                    {ADDRESS_COLUMNS.map((c) => (
+                      <TableHead key={c} className="whitespace-nowrap text-xs">{c}</TableHead>
+                    ))}
+                    <TableHead className="text-xs">firms</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {result.rows.map((row, i) => {
+                    const pn = row.permit_number ? String(row.permit_number) : null;
+                    return (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs">
+                          {pn ? (
+                            <button
+                              type="button"
+                              onClick={() => onViewPermit(pn)}
+                              className="font-medium text-[var(--chart-2)] underline underline-offset-2 hover:opacity-80"
+                            >
+                              {pn}
+                            </button>
+                          ) : "—"}
+                        </TableCell>
+                        {ADDRESS_COLUMNS.map((c) => (
+                          <TableCell key={c} className="whitespace-nowrap text-xs">
+                            {c === "permit_creation_date" ? dateOnly(row[c]) : String(row[c] ?? "—")}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-xs">
+                          {pn ? (
+                            <Button size="sm" variant="outline" onClick={() => setFirmsFor(pn)}>Firms</Button>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            {firmsFor ? <PermitFirms permitNumber={firmsFor} /> : null}
           </div>
         ) : (
           <p className="text-sm text-destructive">{result.error}</p>
@@ -273,46 +376,31 @@ function AddressDialog() {
   );
 }
 
-function PermitNumberDialog() {
+// ---------------------------------------------------------------------------
+// Mode 3: permit number → detail (opens the viewer directly)
+// ---------------------------------------------------------------------------
+
+function PermitNumberDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) {
   const [permitNumber, setPermitNumber] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<PermitsResponse | null>(null);
-
-  const submit = useCallback(async () => {
-    setBusy(true);
-    try {
-      setResult(await apiSend<PermitsResponse>("POST", "permits/lookup", { mode: "permit_number", permitNumber }));
-    } catch (err) {
-      setResult({ ok: false, mode: "permit_number", count: 0, rows: [], durationMs: 0, error: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setBusy(false);
-    }
-  }, [permitNumber]);
-
   return (
-    <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+    <DialogContent className="max-w-lg">
       <DialogHeader>
         <DialogTitle>Permit number → detail</DialogTitle>
-        <DialogDescription>Live SODA lookup by permit number.</DialogDescription>
+        <DialogDescription>Open the full DBI-style permit record (details, firms, review addenda).</DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="permit-num">Permit number</Label>
-        <Input id="permit-num" value={permitNumber} onChange={(e) => setPermitNumber(e.target.value)} placeholder="e.g. 202301017890" />
+        <Input
+          id="permit-num"
+          value={permitNumber}
+          onChange={(e) => setPermitNumber(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && permitNumber.trim()) onViewPermit(permitNumber.trim()); }}
+          placeholder="e.g. 202301017890"
+        />
       </div>
-      <Button onClick={() => void submit()} disabled={busy || !permitNumber.trim()}>
-        {busy ? "Looking up…" : "Look up"}
+      <Button onClick={() => onViewPermit(permitNumber.trim())} disabled={!permitNumber.trim()}>
+        Open permit
       </Button>
-      {result ? (
-        result.ok ? (
-          <div className="flex flex-col gap-3">
-            <Badge variant="outline">{result.count} record(s)</Badge>
-            <ResultsTable rows={result.rows} />
-            {result.rows.length ? <PermitFirms permitNumber={permitNumber.trim()} /> : null}
-          </div>
-        ) : (
-          <p className="text-sm text-destructive">{result.error}</p>
-        )
-      ) : null}
     </DialogContent>
   );
 }
@@ -321,53 +409,60 @@ function PermitNumberDialog() {
 // Launcher
 // ---------------------------------------------------------------------------
 
-const TOOLS = [
-  {
-    key: "contractor",
-    icon: "🛠️",
-    title: "Contractor / Architect / Engineer",
-    desc: "SF permit track record by CSLB license number or firm name (R2 SQL warehouse).",
-    dialog: <ContractorDialog />,
-  },
-  {
-    key: "address",
-    icon: "🏠",
-    title: "Address → permit history",
-    desc: "Every permit filed for an address, live from the SF SODA API, with firm cross-links.",
-    dialog: <AddressDialog />,
-  },
-  {
-    key: "permit",
-    icon: "📄",
-    title: "Permit number → detail",
-    desc: "Full record for a specific permit number, live from the SF SODA API.",
-    dialog: <PermitNumberDialog />,
-  },
-];
-
 export function VettingTool() {
+  const [viewPermit, setViewPermit] = useState<string | null>(null);
+
+  const tools = [
+    {
+      key: "contractor",
+      icon: "🛠️",
+      title: "Contractor / Architect / Engineer",
+      desc: "SF permit track record by CSLB license number or firm name (R2 SQL warehouse).",
+      dialog: <ContractorDialog onViewPermit={setViewPermit} />,
+    },
+    {
+      key: "address",
+      icon: "🏠",
+      title: "Address → permit history",
+      desc: "Every permit filed for an address, live from the SF SODA API, linked to the permit viewer.",
+      dialog: <AddressDialog onViewPermit={setViewPermit} />,
+    },
+    {
+      key: "permit",
+      icon: "📄",
+      title: "Permit number → detail",
+      desc: "Open the full DBI-style permit record with review addenda and firms.",
+      dialog: <PermitNumberDialog onViewPermit={setViewPermit} />,
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-      {TOOLS.map((tool) => (
-        <Dialog key={tool.key}>
-          <DialogTrigger
-            render={
-              <button type="button" className="text-left" aria-label={tool.title}>
-                <Card className="h-full transition-colors hover:ring-1 hover:ring-foreground/30">
-                  <CardHeader>
-                    <div className="mb-1 text-3xl">{tool.icon}</div>
-                    <CardTitle className="text-base">{tool.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-sm">{tool.desc}</CardDescription>
-                  </CardContent>
-                </Card>
-              </button>
-            }
-          />
-          {tool.dialog}
-        </Dialog>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        {tools.map((tool) => (
+          <Dialog key={tool.key}>
+            <DialogTrigger
+              render={
+                <button type="button" className="text-left" aria-label={tool.title}>
+                  <Card className="h-full transition-colors hover:ring-1 hover:ring-foreground/30">
+                    <CardHeader>
+                      <div className="mb-1 text-3xl">{tool.icon}</div>
+                      <CardTitle className="text-base">{tool.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm">{tool.desc}</CardDescription>
+                    </CardContent>
+                  </Card>
+                </button>
+              }
+            />
+            {tool.dialog}
+          </Dialog>
+        ))}
+      </div>
+
+      {/* Permit viewport — opened from any permit-number link above. */}
+      <PermitViewer permitNumber={viewPermit} onClose={() => setViewPermit(null)} />
+    </>
   );
 }

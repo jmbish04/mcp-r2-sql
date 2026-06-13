@@ -16,6 +16,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
 import { detectAnomalies } from "@/backend/ai/providers/anomaly";
+import { chartInsight } from "@/backend/ai/providers/chart-insight";
 import { interpretResults } from "@/backend/ai/providers/interpret";
 import { nlToSql } from "@/backend/ai/providers/nl2sql";
 import { suggestNextQueries } from "@/backend/ai/providers/suggest";
@@ -234,6 +235,53 @@ aiRouter.openapi(
     const body = c.req.valid("json");
     const res = await withAiLog(c, "suggest", () => suggestNextQueries(c.env, body));
     return res.ok ? c.json({ ok: true, suggestions: res.value }, 200) : c.json({ ok: false, error: res.error }, 200);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /chart-insight — one-call interpretation + anomalies for a chart
+// ---------------------------------------------------------------------------
+
+aiRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/chart-insight",
+    tags: ["AI"],
+    summary: "Workers AI reading + anomalies for a single chart's data",
+    operationId: "aiChartInsight",
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              title: z.string().min(1),
+              description: z.string().optional(),
+              rows: rowsSchema,
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "Reading + anomalies.",
+        content: {
+          "application/json": {
+            schema: z.object({
+              ok: z.boolean(),
+              reading: z.string().optional(),
+              anomalies: z.array(z.string()).optional(),
+              error: z.string().optional(),
+            }),
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const body = c.req.valid("json");
+    const res = await withAiLog(c, "chart_insight", () => chartInsight(c.env, body));
+    return res.ok ? c.json({ ok: true, ...res.value }, 200) : c.json({ ok: false, error: res.error }, 200);
   },
 );
 

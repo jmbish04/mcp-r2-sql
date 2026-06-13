@@ -1,22 +1,25 @@
 /**
  * @fileoverview Warehouse overview dashboard island (landing page).
  *
- * Everything on this panel is live:
- *  - KPI cards from GET /api/diagnostics (live COUNT probe, freshness,
- *    catalog status, scan metrics) + GET /api/r2/schema (discovered totals).
- *  - recharts panels driven by real R2 SQL aggregates via POST /api/r2/query:
- *      permits by status (donut), permits filed per month (area),
- *      top contractors (horizontal bar), inspections by result (bar).
- *  - A diagnostics interpretation list ("is data flowing and queryable?").
+ * Everything on this panel is live (no mock data):
+ *  - Stat cards (StatCard) from /api/diagnostics + /api/r2/schema, with a real
+ *    year-over-year permits trend arrow and per-card info popovers.
+ *  - An interactive "permits filed per month" row (PermitsActivityChart).
+ *  - recharts panels from real R2 SQL aggregates: permits-by-status (pie with
+ *    name outside / value inside), top contractors (single-blue horizontal bar
+ *    with value labels), inspections-by-result (single-blue bar). Each chart
+ *    has a Workers-AI "AI read" footer (ChartInsight).
+ *  - The diagnostics interpretation rollup.
  *
- * Until the R2_SQL_TOKEN secret is provisioned the SQL-backed panels surface
- * the engine's own error message — no mock data, ever.
+ * Readability: pie labels force `.recharts-pie-label-text` to fill-foreground
+ * (name, outside) with an inside `<LabelList>` value in fill-background; bar
+ * axis ticks and value labels use fill-foreground for high contrast on dark.
  */
 
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Cell, LabelList, Pie, PieChart, XAxis, YAxis } from "recharts";
 
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { Badge } from "@/components/ui/badge";
@@ -30,10 +33,20 @@ import {
 import { apiGet, apiSend } from "@/lib/api";
 import { compactNumber, relativeTime } from "@/lib/format";
 
+import { ChartInsight } from "./ChartInsight";
+import { PermitsActivityChart } from "./PermitsActivityChart";
+import { StatCard, type StatDelta } from "./StatCard";
 import type { DiagnosticsResponse, QueryResponse } from "./types";
 
+/** Five-hue palette for the (multi-color) pie. Bars use a single blue ramp. */
 const PALETTE = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 const AXIS_TICK = { fill: "hsl(var(--foreground))", fontSize: 12 } as const;
+
+/** A monochrome-blue ramp (all chart-1 hue, descending lightness). */
+function blueRamp(i: number, n: number): string {
+  const pct = Math.round(100 - (i / Math.max(1, n - 1)) * 55); // 100% → 45%
+  return `color-mix(in oklch, var(--chart-1) ${pct}%, var(--background))`;
+}
 
 /** One canned aggregate panel definition. */
 interface PanelDef {
@@ -49,12 +62,6 @@ const PANELS: PanelDef[] = [
     title: "Building permits by status",
     description: "sf_dbi.building_permits — GROUP BY status",
     sql: "SELECT status AS name, COUNT(*) AS value FROM sf_dbi.building_permits GROUP BY status ORDER BY value DESC LIMIT 8",
-  },
-  {
-    key: "filedPerMonth",
-    title: "Permits filed per month",
-    description: "Last 24 months across building permits",
-    sql: "SELECT date_trunc('month', filed_date) AS month, COUNT(*) AS value FROM sf_dbi.building_permits WHERE filed_date >= '2024-06-01T00:00:00Z' GROUP BY date_trunc('month', filed_date) ORDER BY month LIMIT 30",
   },
   {
     key: "topContractors",
@@ -78,7 +85,7 @@ interface PanelState {
 }
 
 /** Run one guarded query through the API. */
-async function runPanelQuery(sql: string): Promise<QueryResponse> {
+function runPanelQuery(sql: string): Promise<QueryResponse> {
   return apiSend<QueryResponse>("POST", "r2/query", { sql });
 }
 
@@ -86,6 +93,7 @@ export function WarehouseDashboard() {
   const [diag, setDiag] = useState<DiagnosticsResponse | null>(null);
   const [diagError, setDiagError] = useState<string | null>(null);
   const [panels, setPanels] = useState<Record<string, PanelState>>({});
+  const [yoy, setYoy] = useState<{ value: string; delta?: StatDelta; caption: string } | null>(null);
 
   const loadDiagnostics = useCallback(async () => {
     try {
@@ -117,10 +125,36 @@ export function WarehouseDashboard() {
     }
   }, []);
 
+  // Year-over-year building-permit filings → a real trend arrow.
+  const loadYoy = useCallback(async () => {
+    try {
+      const res = await runPanelQuery(
+        "SELECT EXTRACT(YEAR FROM filed_date) AS yr, COUNT(*) AS n FROM sf_dbi.building_permits WHERE filed_date IS NOT NULL GROUP BY EXTRACT(YEAR FROM filed_date) ORDER BY yr DESC LIMIT 6",
+      );
+      if (!res.ok || res.rows.length < 2) return;
+      const all = res.rows.map((r) => ({ yr: Number(r.yr), n: Number(r.n) })).filter((r) => r.yr > 0);
+      // Exclude the current (partial) calendar year so the comparison is
+      // complete-year vs complete-year, not "2 months of 2026 vs all of 2025".
+      const currentYear = new Date().getFullYear();
+      const complete = all.filter((r) => r.yr < currentYear);
+      const series = complete.length >= 2 ? complete : all;
+      const [latest, prior] = series; // ordered DESC
+      const pct = prior.n > 0 ? ((latest.n - prior.n) / prior.n) * 100 : 0;
+      setYoy({
+        value: compactNumber(latest.n),
+        caption: `vs ${prior.yr}`,
+        delta: { pct, direction: pct > 0.5 ? "up" : pct < -0.5 ? "down" : "flat", caption: `vs ${prior.yr}` },
+      });
+    } catch {
+      /* trend is best-effort */
+    }
+  }, []);
+
   useEffect(() => {
     void loadDiagnostics();
+    void loadYoy();
     for (const panel of PANELS) void loadPanel(panel);
-  }, [loadDiagnostics, loadPanel]);
+  }, [loadDiagnostics, loadYoy, loadPanel]);
 
   const totalBytesScanned = useMemo(
     () => Object.values(panels).reduce((acc, p) => acc + (p.bytesScanned ?? 0), 0),
@@ -128,28 +162,9 @@ export function WarehouseDashboard() {
   );
 
   const probe = (diag?.probe ?? {}) as { ok?: boolean; total?: number; lastIngestedAt?: string };
-  const kpis = [
-    {
-      label: "Rows at discovery",
-      value: diag ? compactNumber(diag.tables.totalRowsAtDiscovery) : "…",
-      hint: `${diag?.tables.expected ?? "…"} tables in sf_dbi`,
-    },
-    {
-      label: "Live row count (probe)",
-      value: probe.ok ? compactNumber(Number(probe.total ?? 0)) : "n/a",
-      hint: probe.ok ? "sf_dbi.permit_contractors COUNT(*)" : "pending R2_SQL_TOKEN",
-    },
-    {
-      label: "Last warehouse load",
-      value: diag?.ingestion.lastLoadedAt ? relativeTime(new Date(diag.ingestion.lastLoadedAt)) : "…",
-      hint: diag ? `${diag.ingestion.mode}-loaded` : "",
-    },
-    {
-      label: "Bytes scanned (this page)",
-      value: compactNumber(totalBytesScanned),
-      hint: "across dashboard queries",
-    },
-  ];
+  const tableList = diag
+    ? `${diag.tables.live ?? diag.tables.expected} tables in sf_dbi (${compactNumber(diag.tables.totalRowsAtDiscovery)} rows total).`
+    : "Loading…";
 
   return (
     <div className="flex flex-col gap-6">
@@ -163,88 +178,148 @@ export function WarehouseDashboard() {
         {diagError ? <span className="text-xs text-destructive">{diagError}</span> : null}
       </div>
 
-      {/* KPI cards */}
+      {/* Stat cards — trend arrow + info popovers */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map((kpi) => (
-          <Card key={kpi.label}>
-            <CardHeader className="pb-2">
-              <CardDescription>{kpi.label}</CardDescription>
-              <CardTitle className="text-2xl tabular-nums">{kpi.value}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">{kpi.hint}</p>
-            </CardContent>
-          </Card>
-        ))}
+        <StatCard
+          label="Tables in sf_dbi"
+          value={diag ? String(diag.tables.live ?? diag.tables.expected) : "…"}
+          info={
+            <span>
+              <strong>{tableList}</strong> The warehouse holds SF DBI permits, inspections,
+              contractors, complaints, and review addenda — all batch-loaded Iceberg tables.
+            </span>
+          }
+        />
+        <StatCard
+          label="Live rows (probe)"
+          value={probe.ok ? compactNumber(Number(probe.total ?? 0)) : "n/a"}
+          info={
+            <span>
+              Live <code>COUNT(*)</code> on <code>sf_dbi.permit_contractors</code>
+              {probe.lastIngestedAt ? <> · last ingested {relativeTime(new Date(probe.lastIngestedAt))}</> : null}.
+            </span>
+          }
+        />
+        <StatCard
+          label="Building permits filed"
+          value={yoy?.value ?? "…"}
+          delta={yoy?.delta}
+          info={
+            <span>
+              Building permits filed in the most recent year present in the data, compared to the
+              prior year ({yoy?.caption ?? "year over year"}). Source: <code>sf_dbi.building_permits.filed_date</code>.
+            </span>
+          }
+        />
+        <StatCard
+          label="Last warehouse load"
+          value={diag?.ingestion.lastLoadedAt ? relativeTime(new Date(diag.ingestion.lastLoadedAt)) : "…"}
+          info={
+            <span>
+              Most recent Iceberg commit: {diag?.ingestion.lastLoadedAt ?? "unknown"}.
+              Ingestion mode: {diag?.ingestion.mode ?? "?"}. This page scanned{" "}
+              {compactNumber(totalBytesScanned)} bytes of R2 SQL data.
+            </span>
+          }
+        />
       </div>
+
+      {/* Interactive permits-filed-per-month row */}
+      <PermitsActivityChart />
 
       {/* Charts grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Pie: name outside, value inside */}
         <PanelChart
           def={PANELS[0]}
           state={panels[PANELS[0].key]}
           onRetry={() => void loadPanel(PANELS[0])}
           render={(rows, config) => (
-            <ChartContainer config={config} className="mx-auto aspect-square max-h-[280px]">
+            <ChartContainer
+              config={config}
+              className="mx-auto aspect-square max-h-[300px] [&_.recharts-pie-label-text]:fill-foreground"
+            >
               <PieChart>
-                <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" hideLabel />} />
-                <Pie data={rows} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92} strokeWidth={2} stroke="hsl(var(--background))">
+                <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
+                <Pie
+                  data={rows}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={104}
+                  labelLine
+                  label={(p: { name?: string; payload?: { name?: string } }) => p.name ?? p.payload?.name ?? ""}
+                >
                   {rows.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} stroke="hsl(var(--background))" strokeWidth={2} />
                   ))}
+                  <LabelList
+                    dataKey="value"
+                    className="fill-background"
+                    stroke="none"
+                    fontSize={11}
+                    formatter={((v: number) => compactNumber(Number(v))) as never}
+                  />
                 </Pie>
               </PieChart>
             </ChartContainer>
           )}
         />
+
+        {/* Top contractors: single-blue horizontal bar with value labels */}
         <PanelChart
           def={PANELS[1]}
           state={panels[PANELS[1].key]}
           onRetry={() => void loadPanel(PANELS[1])}
-          mapRows={(rows) =>
-            rows.map((r) => ({ name: String(r.month ?? "").slice(0, 7), value: Number(r.value ?? 0) }))
-          }
           render={(rows, config) => (
-            <ChartContainer config={config} className="aspect-video max-h-[280px] w-full">
-              <AreaChart data={rows}>
-                <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} width={44} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Area dataKey="value" type="monotone" fill="var(--chart-2)" fillOpacity={0.25} stroke="var(--chart-2)" />
-              </AreaChart>
-            </ChartContainer>
-          )}
-        />
-        <PanelChart
-          def={PANELS[2]}
-          state={panels[PANELS[2].key]}
-          onRetry={() => void loadPanel(PANELS[2])}
-          render={(rows, config) => (
-            <ChartContainer config={config} className="aspect-video max-h-[300px] w-full">
-              <BarChart data={rows} layout="vertical" margin={{ left: 8 }}>
-                <XAxis type="number" tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ ...AXIS_TICK, fontSize: 10 }} width={170} tickLine={false} axisLine={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="value" radius={3}>
+            <ChartContainer config={config} className="aspect-video max-h-[320px] w-full">
+              <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 40 }}>
+                <XAxis type="number" tick={AXIS_TICK} tickLine={false} axisLine={false} hide />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ ...AXIS_TICK, fontSize: 10 }}
+                  width={170}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                <Bar dataKey="value" radius={4}>
                   {rows.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                    <Cell key={i} fill={blueRamp(i, rows.length)} />
                   ))}
+                  <LabelList
+                    dataKey="value"
+                    position="right"
+                    className="fill-foreground"
+                    fontSize={11}
+                    formatter={((v: number) => compactNumber(Number(v))) as never}
+                  />
                 </Bar>
               </BarChart>
             </ChartContainer>
           )}
         />
+
+        {/* Inspections by result: single-blue vertical bar with value labels */}
         <PanelChart
-          def={PANELS[3]}
-          state={panels[PANELS[3].key]}
-          onRetry={() => void loadPanel(PANELS[3])}
+          def={PANELS[2]}
+          state={panels[PANELS[2].key]}
+          onRetry={() => void loadPanel(PANELS[2])}
           render={(rows, config) => (
-            <ChartContainer config={config} className="aspect-video max-h-[300px] w-full">
-              <BarChart data={rows}>
-                <XAxis dataKey="name" tick={{ ...AXIS_TICK, fontSize: 10 }} tickLine={false} axisLine={false} />
+            <ChartContainer config={config} className="aspect-video max-h-[320px] w-full">
+              <BarChart data={rows} margin={{ top: 18 }}>
+                <XAxis dataKey="name" tick={{ ...AXIS_TICK, fontSize: 10 }} tickLine={false} axisLine={false} interval={0} angle={-12} textAnchor="end" height={48} />
                 <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} width={50} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="value" radius={3} fill="var(--chart-4)" />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                <Bar dataKey="value" radius={4} fill="var(--chart-1)">
+                  <LabelList
+                    dataKey="value"
+                    position="top"
+                    className="fill-foreground"
+                    fontSize={11}
+                    formatter={((v: number) => compactNumber(Number(v))) as never}
+                  />
+                </Bar>
               </BarChart>
             </ChartContainer>
           )}
@@ -255,9 +330,7 @@ export function WarehouseDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Self-diagnostics</CardTitle>
-          <CardDescription>
-            Is data flowing and queryable? Live rollup from /api/diagnostics.
-          </CardDescription>
+          <CardDescription>Is data flowing and queryable? Live rollup from /api/diagnostics.</CardDescription>
         </CardHeader>
         <CardContent>
           {diag ? (
@@ -281,25 +354,22 @@ export function WarehouseDashboard() {
   );
 }
 
-/** Shared chart panel wrapper: name/value rows + ChartCard chrome. */
+/** Chart panel wrapper: maps rows to {name,value}, renders chart + AI read. */
 function PanelChart({
   def,
   state,
   onRetry,
   render,
-  mapRows,
 }: {
   def: PanelDef;
   state: PanelState | undefined;
   onRetry: () => void;
   render: (rows: { name: string; value: number }[], config: ChartConfig) => React.ReactNode;
-  mapRows?: (rows: Record<string, unknown>[]) => { name: string; value: number }[];
 }) {
-  const rows = useMemo(() => {
-    const raw = state?.rows ?? [];
-    if (mapRows) return mapRows(raw);
-    return raw.map((r) => ({ name: String(r.name ?? "(null)"), value: Number(r.value ?? 0) }));
-  }, [state?.rows, mapRows]);
+  const rows = useMemo(
+    () => (state?.rows ?? []).map((r) => ({ name: String(r.name ?? "(null)"), value: Number(r.value ?? 0) })),
+    [state?.rows],
+  );
 
   const config = useMemo(() => {
     const cfg: ChartConfig = { value: { label: "count", color: PALETTE[0] } };
@@ -319,6 +389,7 @@ function PanelChart({
       hasData={rows.length > 0}
     >
       {render(rows, config)}
+      <ChartInsight title={def.title} description={def.description} rows={rows} />
     </ChartCard>
   );
 }

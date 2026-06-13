@@ -64,6 +64,24 @@ export interface SuggestResponse {
   error?: string;
 }
 
+/** Response of POST /api/ai/chart-insight. */
+export interface ChartInsightResponse {
+  ok: boolean;
+  reading?: string;
+  anomalies?: string[];
+  error?: string;
+}
+
+/** Response of GET /api/permits/detail. */
+export interface PermitDetailResponse {
+  ok: boolean;
+  permit: Record<string, unknown> | null;
+  addenda: Record<string, unknown>[];
+  firms: Record<string, unknown>[];
+  source: { permit: string; addenda: string; firms: string };
+  errors: string[];
+}
+
 /** Response of POST /api/vetting/contractor. */
 export interface VettingResponse {
   ok: boolean;
