@@ -11,3 +11,4 @@ export * from "./soda";
 export * from "./schema-info";
 export * from "./log";
 export * from "./vetting";
+export * from "./secrets";

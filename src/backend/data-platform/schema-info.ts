@@ -17,7 +17,8 @@ export function qualifiedTableNames(): string[] {
 }
 
 /** Look up a discovered table by bare or qualified name; null when unknown. */
-export function findTable(name: string): { table: string; info: DiscoveredTable } | null {
+export function findTable(name: string | null | undefined): { table: string; info: DiscoveredTable } | null {
+  if (!name) return null;
   const bare = name.includes(".") ? name.split(".").pop()! : name;
   const info = DISCOVERED_SCHEMA.tables[bare];
   return info ? { table: bare, info } : null;

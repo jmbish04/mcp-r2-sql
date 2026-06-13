@@ -21,6 +21,7 @@ import {
   DISCOVERED_SCHEMA,
   findTable,
   getCatalogStatus,
+  getR2SqlToken,
   guardSql,
   listNamespaces,
   listTables,
@@ -315,11 +316,12 @@ r2Router.openapi(
   async (c) => {
     const checks: { name: string; status: "ok" | "warn" | "fail"; message?: string; durationMs: number }[] = [];
 
-    // 1. Secret present?
+    // 1. Secret present? (Secrets Store binding R2_SQL_TOKEN → CLOUDFLARE_R2_SQL_TOKEN)
+    const token = await getR2SqlToken(c.env);
     checks.push({
       name: "r2_sql_token",
-      status: c.env.R2_SQL_TOKEN ? "ok" : "fail",
-      message: c.env.R2_SQL_TOKEN ? undefined : "R2_SQL_TOKEN secret not set (npx wrangler secret put R2_SQL_TOKEN)",
+      status: token ? "ok" : "fail",
+      message: token ? undefined : "R2_SQL_TOKEN Secrets Store binding not resolvable (store secret CLOUDFLARE_R2_SQL_TOKEN).",
       durationMs: 0,
     });
 

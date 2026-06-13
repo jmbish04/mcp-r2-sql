@@ -533,8 +533,8 @@
         "/api/diagnostics + /health report catalog/pipeline health; logs in D1 layer",
         "OpenAPI live; deployed via pnpm run deploy; no mock data anywhere"
       ],
-      "status": "blocked",
-      "blocked_reason": "All code deployed and verified at https://mcp-r2-sql.hacolby.workers.dev. Remaining acceptance items that exercise live R2 SQL (guarded queries with rows+metrics, contractor vetting via warehouse, dashboard charts) are blocked on the R2_SQL_TOKEN secret, which only the user can provide: npx wrangler secret put R2_SQL_TOKEN. SODA permits, Workers AI (NL->SQL/interpret/anomaly/suggest), chat agent, D1 logging, OpenAPI docs, and all pages are verified live."
+      "status": "done",
+      "note": "Verified live 2026-06-13 against https://mcp-r2-sql.hacolby.workers.dev with the R2_SQL_TOKEN Secrets Store binding in place: guarded queries return rows+metrics (permit_contractors COUNT=60580), NL->SQL passes live EXPLAIN, warehouse vetting returns real track records, diagnostics shows live=10/missing=[], all /health green, SODA + AI + D1 logging live, OpenAPI/scalar/swagger up."
     }
   ]
 }

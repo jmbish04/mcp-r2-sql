@@ -13,14 +13,11 @@
  * the diagnostics rollup can aggregate partial failures.
  */
 
+import { getR2SqlToken } from "./secrets";
+
 /** Build the catalog REST base URL for this account/bucket. */
 function base(env: Env): string {
   return `https://api.cloudflare.com/client/v4/accounts/${env.R2_ACCOUNT_ID}/r2-catalog/${env.R2_BUCKET}`;
-}
-
-/** Standard headers for catalog REST calls. */
-function headers(env: Env): Record<string, string> {
-  return { Authorization: `Bearer ${env.R2_SQL_TOKEN}`, "Content-Type": "application/json" };
 }
 
 /** Join nested namespace levels with the `%1F` unit separator for URL paths. */
@@ -30,8 +27,15 @@ export function encodeNamespace(levels: string[]): string {
 
 /** Generic GET against the catalog API, normalized to `{ok,status,result,errors}`. */
 async function catalogGet<T>(env: Env, path: string): Promise<{ ok: boolean; status: number; result: T | null; errors: string[] }> {
+  const token = await getR2SqlToken(env);
+  if (!token) {
+    return { ok: false, status: 0, result: null, errors: ["R2_SQL_TOKEN secret is not configured (Secrets Store binding R2_SQL_TOKEN → CLOUDFLARE_R2_SQL_TOKEN)."] };
+  }
   try {
-    const resp = await fetch(`${base(env)}${path}`, { headers: headers(env), signal: AbortSignal.timeout(30_000) });
+    const resp = await fetch(`${base(env)}${path}`, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(30_000),
+    });
     const body = (await resp.json().catch(() => null)) as {
       success?: boolean;
       result?: T;
@@ -79,14 +83,36 @@ export interface CatalogTable {
   metadata_location?: string;
 }
 
+/**
+ * Raw shapes returned by the Cloudflare catalog `/tables?return_details=true`
+ * endpoint. NOTE: in the `details` array the table name is nested under
+ * `identifier.name` (not top-level) — a mismatch here silently yields
+ * `{name: undefined}` rows that break downstream `findTable()` lookups.
+ */
+interface CatalogTableIdentifier {
+  namespace: string[];
+  name: string;
+}
+interface CatalogTableDetail {
+  identifier: CatalogTableIdentifier;
+  created_at?: string;
+  metadata_location?: string;
+}
+
 /** List tables (with details) in a namespace. */
 export async function listTables(env: Env, namespace: string) {
   const ns = encodeNamespace(namespace.split("."));
-  const res = await catalogGet<{ identifiers?: { name: string }[]; details?: CatalogTable[] }>(
+  const res = await catalogGet<{ identifiers?: CatalogTableIdentifier[]; details?: CatalogTableDetail[] }>(
     env,
     `/namespaces/${ns}/tables?return_details=true`,
   );
   const tables: CatalogTable[] =
-    res.result?.details ?? res.result?.identifiers?.map((i) => ({ name: i.name })) ?? [];
+    res.result?.details?.map((d) => ({
+      name: d.identifier.name,
+      created_at: d.created_at,
+      metadata_location: d.metadata_location,
+    })) ??
+    res.result?.identifiers?.map((i) => ({ name: i.name })) ??
+    [];
   return { ...res, tables };
 }

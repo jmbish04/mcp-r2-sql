@@ -12,7 +12,7 @@
 import { z } from "zod";
 
 import { generateStructuredOutput } from "@/backend/ai/providers/index";
-import { guardSql, queryR2Sql, renderSchemaForPrompt } from "@/backend/data-platform";
+import { getR2SqlToken, guardSql, queryR2Sql, renderSchemaForPrompt } from "@/backend/data-platform";
 
 /** Structured model output for an NL->SQL draft. */
 const Nl2SqlOutput = z.object({
@@ -98,7 +98,7 @@ export async function nlToSql(env: Env, question: string, opts?: { skipExplain?:
     return { ok: false, sql: draft.sql, rationale: draft.rationale, rewrites: [], explainOk: null, error: `Drafted SQL rejected by guard: ${guard.reason}` };
   }
 
-  if (opts?.skipExplain || !env.R2_SQL_TOKEN) {
+  if (opts?.skipExplain || !(await getR2SqlToken(env))) {
     return { ok: true, sql: guard.sql, rationale: draft.rationale, rewrites: guard.rewrites, explainOk: null, error: null };
   }
 

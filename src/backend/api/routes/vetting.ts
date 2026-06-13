@@ -14,7 +14,7 @@
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
-import { logOperation, vetContractor } from "@/backend/data-platform";
+import { getR2SqlToken, logOperation, vetContractor } from "@/backend/data-platform";
 
 export const vettingRouter = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -96,13 +96,14 @@ vettingRouter.openapi(
   async (c) => {
     // Token-free check: the builder must produce guard-clean SQL. With a
     // token present, the route's first real lookup is the live verification.
+    const hasToken = Boolean(await getR2SqlToken(c.env));
     const probe = await vetContractor(c.env, { name: "__health_probe__" });
-    const live = probe.ok || !c.env.R2_SQL_TOKEN;
+    const live = probe.ok || !hasToken;
     return c.json({
       status: live ? ("ok" as const) : ("degraded" as const),
       message: probe.ok
         ? "Warehouse vetting query executed."
-        : c.env.R2_SQL_TOKEN
+        : hasToken
           ? `Warehouse probe failed: ${probe.error}`
           : "Query builder OK; live probe pending R2_SQL_TOKEN secret.",
     }, 200);

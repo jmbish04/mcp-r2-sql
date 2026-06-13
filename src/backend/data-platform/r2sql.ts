@@ -13,6 +13,7 @@
  * (e.g. "OFFSET not supported") directly to the user.
  */
 
+import { getR2SqlToken } from "./secrets";
 import type { R2SqlResult } from "./types";
 
 /** Wall-clock cap for a single R2 SQL round trip (the engine's own cap is 180s). */
@@ -35,14 +36,15 @@ export async function queryR2Sql(env: Env, sql: string): Promise<R2SqlResult> {
   const url = `https://api.sql.cloudflarestorage.com/api/v1/accounts/${env.R2_ACCOUNT_ID}/r2-sql/query/${env.R2_BUCKET}`;
   const started = Date.now();
 
-  if (!env.R2_SQL_TOKEN) {
+  const token = await getR2SqlToken(env);
+  if (!token) {
     return {
       ok: false,
       rows: [],
       schema: [],
       metrics: {},
       requestId: null,
-      errors: [{ code: null, message: "R2_SQL_TOKEN secret is not configured. Run: npx wrangler secret put R2_SQL_TOKEN" }],
+      errors: [{ code: null, message: "R2_SQL_TOKEN secret is not configured (Secrets Store binding R2_SQL_TOKEN → CLOUDFLARE_R2_SQL_TOKEN)." }],
       status: 0,
       durationMs: 0,
     };
@@ -52,7 +54,7 @@ export async function queryR2Sql(env: Env, sql: string): Promise<R2SqlResult> {
     const resp = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${env.R2_SQL_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query: sql }),

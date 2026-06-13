@@ -162,6 +162,25 @@
       "store_id": "8c42fa70938644e0a8a109744467375f",
       "secret_name": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
     },
+    // R2 SQL warehouse credentials (Secrets Store). The Bearer token is the
+    // only one consumed today (R2 SQL query API + Catalog REST API both use
+    // it); the S3 access key/secret are bound for future PyIceberg/orphan
+    // -removal style operations against the S3-compatible endpoint.
+    {
+      "binding": "R2_SQL_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_R2_SQL_TOKEN",
+    },
+    {
+      "binding": "R2_SQL_ACCESS_KEY_ID",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_R2_SQL_ACCESS_KEY_ID",
+    },
+    {
+      "binding": "R2_SQL_SECRET_ACCESS_KEY",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_R2_SQL_SECRET_ACCESS_KEY",
+    },
   ],
   //  wrangler vectorize create mcp-r2-sql-career-memory --preset @cf/baai/bge-large-en-v1.5
   "vectorize": [
