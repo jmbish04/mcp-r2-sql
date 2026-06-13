@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
 
+import { LocationMap } from "./maps/LocationMap";
+import { extractPoint } from "./maps/loader";
 import type { PermitDetailResponse } from "./types";
 
 /** Fields surfaced first in the prop:value table (the rest follow alphabetically). */
@@ -132,6 +134,12 @@ export function PermitViewer({
           <p className="text-sm text-muted-foreground">No record found for permit {permitNumber}.</p>
         ) : (
           <div className="flex flex-col gap-6">
+            {/* Location map (when the record carries coordinates) */}
+            {(() => {
+              const p = extractPoint(permit, String(permitNumber ?? ""));
+              return p ? <LocationMap points={[p]} height={220} /> : null;
+            })()}
+
             {/* Full field table — 2 column prop:value */}
             <section>
               <h3 className="mb-2 text-sm font-semibold">Permit details</h3>

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "../../db";
 import { globalConfig, selectGlobalConfigSchema } from "../../db/schema";
+import { getSecret } from "@/backend/utils/secrets";
 
 const configParam = z.object({ key: z.string() });
 const configValueBody = z.object({ value: z.unknown() });
@@ -167,6 +168,47 @@ adminRouter.openapi(
     }
 
     return c.json(rows);
+  },
+);
+
+/**
+ * Maps config router (mounted at `/api/maps`, separate from configRouter so it
+ * is not shadowed by the `/{key}` config-value param route).
+ *
+ * GET /api/maps/config — expose the Google Maps JavaScript API key to the
+ * browser islands (address autocomplete + location maps). Google Maps JS keys
+ * are browser keys (public, restricted by HTTP-referrer in the Google Cloud
+ * console), so returning the value here is the intended pattern. The key is
+ * resolved from the Secrets Store binding `GOOGLE_MAPS_API_KEY`; when it is not
+ * configured the endpoint returns `{ enabled: false }` and the UI falls back to
+ * manual entry (no maps).
+ */
+export const mapsRouter = new OpenAPIHono<{ Bindings: Env }>();
+
+mapsRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/config",
+    tags: ["Config"],
+    summary: "Google Maps JS API key for the frontend (or enabled:false)",
+    operationId: "configMaps",
+    responses: {
+      200: {
+        description: "Maps key availability.",
+        content: {
+          "application/json": {
+            schema: z.object({
+              enabled: z.boolean(),
+              key: z.string().optional(),
+            }),
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
+    const key = await getSecret(c.env, "GOOGLE_MAPS_API_KEY");
+    return c.json(key ? { enabled: true, key } : { enabled: false }, 200);
   },
 );
 

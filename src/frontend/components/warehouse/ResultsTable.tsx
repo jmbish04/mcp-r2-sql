@@ -21,6 +21,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { LocationMap } from "./maps/LocationMap";
+import { extractPoints } from "./maps/loader";
+
 /** Render a cell value compactly (objects/arrays become truncated JSON). */
 function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -46,14 +49,18 @@ export interface ResultsTableProps {
   maxRows?: number;
   /** Optional per-row action cell renderer (e.g. a "Vet" button). */
   rowAction?: (row: Record<string, unknown>) => React.ReactNode;
+  /** Show a location map above the table when rows carry coordinates (default true). */
+  showMap?: boolean;
 }
 
-export function ResultsTable({ rows, maxRows = 500, rowAction }: ResultsTableProps) {
+export function ResultsTable({ rows, maxRows = 500, rowAction, showMap = true }: ResultsTableProps) {
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const columns = useMemo(() => (rows.length ? Object.keys(rows[0]) : []), [rows]);
+  // Map points (if any) — LocationMap renders nothing when empty or keyless.
+  const points = useMemo(() => (showMap ? extractPoints(rows) : []), [rows, showMap]);
 
   const visible = useMemo(() => {
     let out = rows;
@@ -85,6 +92,7 @@ export function ResultsTable({ rows, maxRows = 500, rowAction }: ResultsTablePro
 
   return (
     <div className="flex flex-col gap-2">
+      {points.length > 0 ? <LocationMap points={points} height={240} /> : null}
       <Input
         value={filter}
         onChange={(e) => setFilter(e.target.value)}

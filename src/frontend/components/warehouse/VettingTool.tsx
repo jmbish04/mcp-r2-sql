@@ -51,6 +51,9 @@ import {
 import { apiSend } from "@/lib/api";
 import { compactNumber } from "@/lib/format";
 
+import { AddressAutocomplete } from "./maps/AddressAutocomplete";
+import { LocationMap } from "./maps/LocationMap";
+import { extractPoints } from "./maps/loader";
 import { PermitViewer } from "./PermitViewer";
 import { ResultsTable } from "./ResultsTable";
 import type { PermitsResponse, QueryResponse, VettingResponse } from "./types";
@@ -301,6 +304,13 @@ function AddressDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) 
           coming once the maps provider is set — enter the street number and name for now.)
         </DialogDescription>
       </DialogHeader>
+      <AddressAutocomplete
+        onSelect={(a) => {
+          setStreetNumber(a.streetNumber);
+          setStreetName(a.streetName);
+          if (a.unit) setUnit(a.unit);
+        }}
+      />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="addr-num">Street number</Label>
@@ -367,6 +377,7 @@ function AddressDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) 
               </Table>
             </div>
             {firmsFor ? <PermitFirms permitNumber={firmsFor} /> : null}
+            <LocationMap points={extractPoints(result.rows, "permit_number")} height={260} />
           </div>
         ) : (
           <p className="text-sm text-destructive">{result.error}</p>

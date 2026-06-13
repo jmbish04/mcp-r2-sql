@@ -24,7 +24,7 @@ import { authMiddleware } from "./middleware/auth";
 import { errorHandler } from "./middleware/error";
 import { authRouter } from "./routes/auth";
 import { clientErrorRouter } from "./routes/client-error";
-import { adminRouter, configRouter } from "./routes/config";
+import { adminRouter, configRouter, mapsRouter } from "./routes/config";
 import { docsRouter } from "./routes/docs";
 import { healthRouter } from "./routes/health";
 import { activityRouter } from "./routes/activity";
@@ -116,6 +116,7 @@ app.use("/api/admin/*", authMiddleware);
 app.route("/api/auth", authRouter);
 app.route("/api/health", healthRouter);
 app.route("/api/config", configRouter);
+app.route("/api/maps", mapsRouter);
 app.route("/api/admin", adminRouter);
 app.route("/api/docs", docsRouter);
 
