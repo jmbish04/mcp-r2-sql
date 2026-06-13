@@ -40,7 +40,7 @@ import type { DiagnosticsResponse, QueryResponse } from "./types";
 
 /** Five-hue palette for the (multi-color) pie. Bars use a single blue ramp. */
 const PALETTE = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
-const AXIS_TICK = { fill: "hsl(var(--foreground))", fontSize: 12 } as const;
+const AXIS_TICK = { fill: "var(--foreground)", fontSize: 12 } as const;
 
 /** A monochrome-blue ramp (all chart-1 hue, descending lightness). */
 function blueRamp(i: number, n: number): string {
@@ -250,7 +250,7 @@ export function WarehouseDashboard() {
                   label={(p: { name?: string; payload?: { name?: string } }) => p.name ?? p.payload?.name ?? ""}
                 >
                   {rows.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} stroke="hsl(var(--background))" strokeWidth={2} />
+                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} stroke="var(--background)" strokeWidth={2} />
                   ))}
                   <LabelList
                     dataKey="value"
@@ -289,9 +289,10 @@ export function WarehouseDashboard() {
                   ))}
                   <LabelList
                     dataKey="value"
-                    position="right"
-                    className="fill-foreground"
+                    position="insideRight"
+                    fill="#ffffff"
                     fontSize={11}
+                    fontWeight={600}
                     formatter={((v: number) => compactNumber(Number(v))) as never}
                   />
                 </Bar>
@@ -314,9 +315,10 @@ export function WarehouseDashboard() {
                 <Bar dataKey="value" radius={4} fill="var(--chart-1)">
                   <LabelList
                     dataKey="value"
-                    position="top"
-                    className="fill-foreground"
+                    position="insideTop"
+                    fill="#ffffff"
                     fontSize={11}
+                    fontWeight={600}
                     formatter={((v: number) => compactNumber(Number(v))) as never}
                   />
                 </Bar>

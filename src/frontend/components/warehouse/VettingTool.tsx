@@ -1,19 +1,15 @@
 /**
  * @fileoverview Vetting tool island — pick a tool, fill a shadcn Dialog,
- * get live results.
+ * get live results. All permit tables use the standard {@link PermitsTable};
+ * single-entity records (contractor profile) use {@link PropValueTable}.
  *
- * Three modes, all live (no mock data):
- *  1. Contractor / Architect / Engineer — license and/or firm name, with a
- *     role dropdown → POST /api/vetting/contractor → aggregate SF permit track
- *     record from the R2 SQL warehouse (sf_dbi.permit_contractors).
- *  2. Address → permit history — street number + name (+unit) →
- *     POST /api/permits/lookup (live SF SODA API), shown in a focused table
- *     whose permit numbers link into the DBI-style PermitViewer.
- *  3. Permit number → detail → opens the PermitViewer directly.
- *
- * NOTE: Google-Places address autocomplete (#5) and result maps (#7) are
- * pending a maps-provider decision; the address mode currently takes manual
- * street number + name.
+ * Modes (all live, no mock data):
+ *  1. Contractor / Architect / Engineer — license and/or firm name + role
+ *     dropdown → /api/vetting/contractor → prop:value track-record profile +
+ *     a standard permits table of recent engagements.
+ *  2. Address → permit history — Google Places autocomplete (or manual street
+ *     number + name) → /api/permits/lookup → standard permits table + map.
+ *  3. Permit number → opens the DBI-style PermitViewer directly.
  */
 
 "use client";
@@ -40,23 +36,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { apiSend } from "@/lib/api";
 import { compactNumber } from "@/lib/format";
 
 import { AddressAutocomplete } from "./maps/AddressAutocomplete";
-import { LocationMap } from "./maps/LocationMap";
-import { extractPoints } from "./maps/loader";
+import { PermitsTable } from "./PermitsTable";
 import { PermitViewer } from "./PermitViewer";
-import { ResultsTable } from "./ResultsTable";
-import type { PermitsResponse, QueryResponse, VettingResponse } from "./types";
+import { PropValueTable } from "./PropValueTable";
+import { TableSkeleton } from "./TableSkeleton";
+import type { PermitsResponse, VettingResponse } from "./types";
 
 /** Vetting role options for the dropdown. */
 const ROLES = [
@@ -70,12 +58,6 @@ const ROLES = [
   "plumber",
   "HIS",
 ] as const;
-
-/** Format an ISO-ish date string to yyyy-mm-dd (no time). */
-function dateOnly(value: unknown): string {
-  const s = String(value ?? "");
-  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : s || "—";
-}
 
 // ---------------------------------------------------------------------------
 // Mode 1: contractor / architect / engineer
@@ -91,6 +73,7 @@ function ContractorDialog({ onViewPermit }: { onViewPermit: (n: string) => void 
 
   const submit = useCallback(async () => {
     setBusy(true);
+    setResult(null);
     try {
       setResult(await apiSend<VettingResponse>("POST", "vetting/contractor", {
         license: license || undefined,
@@ -147,6 +130,8 @@ function ContractorDialog({ onViewPermit }: { onViewPermit: (n: string) => void 
         {busy ? "Vetting…" : "Vet"}
       </Button>
 
+      {busy ? <TableSkeleton rows={4} cols={4} /> : null}
+
       {result ? (
         result.ok ? (
           <div className="flex flex-col gap-4">
@@ -157,18 +142,18 @@ function ContractorDialog({ onViewPermit }: { onViewPermit: (n: string) => void 
             {result.profile.length ? (
               <>
                 <h4 className="text-sm font-medium">Track-record profile</h4>
-                <ResultsTable rows={result.profile} />
+                <div className="flex flex-col gap-3">
+                  {result.profile.map((p, i) => (
+                    <div key={i} className="flex flex-col gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {String(p.firm_name ?? "")} · license {String(p.license1 ?? "—")} · {String(p.role ?? "")}
+                      </p>
+                      <PropValueTable data={p} />
+                    </div>
+                  ))}
+                </div>
                 <h4 className="text-sm font-medium">Recent permit engagements</h4>
-                <ResultsTable
-                  rows={result.recentPermits}
-                  rowAction={(row) =>
-                    row.permit_number ? (
-                      <Button size="sm" variant="ghost" onClick={() => onViewPermit(String(row.permit_number))}>
-                        View
-                      </Button>
-                    ) : null
-                  }
-                />
+                <PermitsTable rows={result.recentPermits} onViewPermit={onViewPermit} />
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -186,92 +171,8 @@ function ContractorDialog({ onViewPermit }: { onViewPermit: (n: string) => void 
 }
 
 // ---------------------------------------------------------------------------
-// Permit-firms cross-link (vet firms recorded on a permit)
+// Mode 2: address → permit history
 // ---------------------------------------------------------------------------
-
-function PermitFirms({ permitNumber }: { permitNumber: string }) {
-  const [busy, setBusy] = useState(false);
-  const [firms, setFirms] = useState<Record<string, unknown>[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [vetting, setVetting] = useState<VettingResponse | null>(null);
-
-  const findFirms = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const sql = `SELECT DISTINCT firm_name, license1, role FROM sf_dbi.permit_contractors WHERE permit_number = '${permitNumber.replace(/'/g, "''")}' LIMIT 50`;
-      const res = await apiSend<QueryResponse>("POST", "r2/query", { sql });
-      if (res.ok) setFirms(res.rows);
-      else setError(res.errors[0]?.message ?? "Lookup failed");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [permitNumber]);
-
-  const vet = useCallback(async (row: Record<string, unknown>) => {
-    setVetting(null);
-    try {
-      setVetting(await apiSend<VettingResponse>("POST", "vetting/contractor", {
-        license: row.license1 ? String(row.license1) : undefined,
-        name: row.license1 ? undefined : String(row.firm_name ?? ""),
-      }));
-    } catch (err) {
-      setVetting({ ok: false, profile: [], recentPermits: [], metrics: {}, sql: "", error: err instanceof Error ? err.message : String(err) });
-    }
-  }, []);
-
-  return (
-    <div className="flex flex-col gap-2 rounded-md bg-muted/30 p-3 ring-1 ring-border/40">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          Firms on permit <code>{permitNumber}</code> (vet any against the warehouse).
-        </p>
-        <Button size="sm" variant="outline" onClick={() => void findFirms()} disabled={busy}>
-          {busy ? "Searching…" : "Find firms"}
-        </Button>
-      </div>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
-      {firms ? (
-        firms.length ? (
-          <ResultsTable
-            rows={firms}
-            rowAction={(row) => (
-              <Button size="sm" variant="secondary" onClick={() => void vet(row)}>Vet</Button>
-            )}
-          />
-        ) : (
-          <p className="text-xs text-muted-foreground">No firms recorded for this permit in the warehouse.</p>
-        )
-      ) : null}
-      {vetting ? (
-        vetting.ok ? (
-          <div className="flex flex-col gap-2">
-            <h5 className="text-xs font-medium">Vetting profile</h5>
-            <ResultsTable rows={vetting.profile} />
-          </div>
-        ) : (
-          <p className="text-xs text-destructive">{vetting.error}</p>
-        )
-      ) : null}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Mode 2: address → permit history (focused table + permit links)
-// ---------------------------------------------------------------------------
-
-/** The trimmed column set requested for the address history table. */
-const ADDRESS_COLUMNS = [
-  "permit_type_definition",
-  "permit_creation_date",
-  "block",
-  "lot",
-  "street_number",
-  "street_name",
-] as const;
 
 function AddressDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) {
   const [streetNumber, setStreetNumber] = useState("");
@@ -279,11 +180,10 @@ function AddressDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) 
   const [unit, setUnit] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PermitsResponse | null>(null);
-  const [firmsFor, setFirmsFor] = useState<string | null>(null);
 
   const submit = useCallback(async () => {
     setBusy(true);
-    setFirmsFor(null);
+    setResult(null);
     try {
       setResult(await apiSend<PermitsResponse>("POST", "permits/lookup", {
         mode: "address", streetNumber, streetName, unit: unit || undefined,
@@ -300,8 +200,8 @@ function AddressDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) 
       <DialogHeader>
         <DialogTitle>Address → permit history</DialogTitle>
         <DialogDescription>
-          Live lookup against the SF Building Permits SODA dataset. (Google-Places autocomplete is
-          coming once the maps provider is set — enter the street number and name for now.)
+          Search a San Francisco address (Google Places) or enter the street number and name manually,
+          then look up its permit history (live SF SODA API).
         </DialogDescription>
       </DialogHeader>
       <AddressAutocomplete
@@ -329,55 +229,13 @@ function AddressDialog({ onViewPermit }: { onViewPermit: (n: string) => void }) 
         {busy ? "Searching…" : "Search permits"}
       </Button>
 
+      {busy ? <TableSkeleton /> : null}
+
       {result ? (
         result.ok ? (
           <div className="flex flex-col gap-3">
             <Badge variant="outline">{result.count} permits</Badge>
-            <div className="max-h-[28rem] overflow-auto rounded-md ring-1 ring-border/40">
-              <Table>
-                <TableHeader className="sticky top-0 bg-card">
-                  <TableRow>
-                    <TableHead className="text-xs">permit_number</TableHead>
-                    {ADDRESS_COLUMNS.map((c) => (
-                      <TableHead key={c} className="whitespace-nowrap text-xs">{c}</TableHead>
-                    ))}
-                    <TableHead className="text-xs">firms</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {result.rows.map((row, i) => {
-                    const pn = row.permit_number ? String(row.permit_number) : null;
-                    return (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs">
-                          {pn ? (
-                            <button
-                              type="button"
-                              onClick={() => onViewPermit(pn)}
-                              className="font-medium text-[var(--chart-2)] underline underline-offset-2 hover:opacity-80"
-                            >
-                              {pn}
-                            </button>
-                          ) : "—"}
-                        </TableCell>
-                        {ADDRESS_COLUMNS.map((c) => (
-                          <TableCell key={c} className="whitespace-nowrap text-xs">
-                            {c === "permit_creation_date" ? dateOnly(row[c]) : String(row[c] ?? "—")}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-xs">
-                          {pn ? (
-                            <Button size="sm" variant="outline" onClick={() => setFirmsFor(pn)}>Firms</Button>
-                          ) : null}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            {firmsFor ? <PermitFirms permitNumber={firmsFor} /> : null}
-            <LocationMap points={extractPoints(result.rows, "permit_number")} height={260} />
+            <PermitsTable rows={result.rows} onViewPermit={onViewPermit} />
           </div>
         ) : (
           <p className="text-sm text-destructive">{result.error}</p>

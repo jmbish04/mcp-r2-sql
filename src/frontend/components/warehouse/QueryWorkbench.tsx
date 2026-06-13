@@ -28,6 +28,7 @@ import { apiSend } from "@/lib/api";
 import { compactNumber } from "@/lib/format";
 
 import { ResultsTable } from "./ResultsTable";
+import { TableSkeleton } from "./TableSkeleton";
 import {
   WAREHOUSE_EVENTS,
   type AnomaliesResponse,
@@ -206,7 +207,7 @@ export function QueryWorkbench() {
       {runError ? <p className="text-sm text-destructive">{runError}</p> : null}
 
       {/* Results */}
-      {result?.ok ? <ResultsTable rows={result.rows} /> : null}
+      {running ? <TableSkeleton rows={8} cols={6} /> : result?.ok ? <ResultsTable rows={result.rows} /> : null}
 
       {/* AI panels */}
       {interpret ? (

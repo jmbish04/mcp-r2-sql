@@ -207,7 +207,7 @@ mapsRouter.openapi(
     },
   }),
   async (c) => {
-    const key = await getSecret(c.env, "GOOGLE_MAPS_API_KEY");
+    const key = await getSecret(c.env, "GOOGLE_MAPS_API");
     return c.json(key ? { enabled: true, key } : { enabled: false }, 200);
   },
 );

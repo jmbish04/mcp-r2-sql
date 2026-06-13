@@ -1,12 +1,12 @@
 /**
  * @fileoverview Google Maps JavaScript API loader (singleton) + helpers.
  *
- * Fetches the browser Maps key from GET /api/config/maps (server-resolved from
- * the GOOGLE_MAPS_API_KEY Secrets Store binding) and injects the Maps JS SDK
- * once, with the `places` + `marker` libraries. All map/autocomplete islands
- * await {@link loadGoogleMaps}; when the key is not configured it resolves to
- * `null` and callers fall back to manual entry (no maps) — progressive
- * enhancement, never a hard failure.
+ * Fetches the browser Maps key from GET /api/maps/config (server-resolved from
+ * the GOOGLE_MAPS_API Secrets Store binding) and injects the Maps JS SDK once
+ * with the `places` library — used ONLY for the address autocomplete. Map
+ * display is keyless Leaflet (see components/ui/map). When the key is not
+ * configured this resolves to `null` and the autocomplete hides (manual entry)
+ * — progressive enhancement, never a hard failure.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -46,7 +46,7 @@ export function loadGoogleMaps(): Promise<GoogleNS | null> {
       const cbName = "__initGoogleMaps__";
       (window as any)[cbName] = () => resolve((window as any).google ?? null);
       const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(cfg.key!)}&libraries=places,marker&loading=async&callback=${cbName}`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(cfg.key!)}&libraries=places&loading=async&callback=${cbName}`;
       script.async = true;
       script.onerror = () => resolve(null);
       document.head.appendChild(script);

@@ -35,13 +35,16 @@ import { apiGet } from "@/lib/api";
 
 import { LocationMap } from "./maps/LocationMap";
 import { extractPoint } from "./maps/loader";
+import { PermitTypeBadge, StatusBadge } from "./permit-badges";
+import { fmtValue, PropValueTable } from "./PropValueTable";
 import type { PermitDetailResponse } from "./types";
 
-/** Fields surfaced first in the prop:value table (the rest follow alphabetically). */
+/** Fields surfaced first in the prop:value table (the rest follow, sorted). */
 const PRIORITY_FIELDS = [
   "permit_number",
   "status",
   "permit_type_definition",
+  "permit_type",
   "description",
   "street_number",
   "street_name",
@@ -56,30 +59,6 @@ const PRIORITY_FIELDS = [
   "estimated_cost",
   "revised_cost",
 ];
-
-/** Render a value: dates → yyyy-mm-dd, objects → compact, else string. */
-function fmtValue(key: string, value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "object") {
-    // SODA `location` etc. — show coordinates compactly if present.
-    const o = value as Record<string, unknown>;
-    if (o.latitude && o.longitude) return `${o.latitude}, ${o.longitude}`;
-    if (Array.isArray((o as { coordinates?: unknown }).coordinates)) return JSON.stringify((o as { coordinates: unknown }).coordinates);
-    return JSON.stringify(value);
-  }
-  const s = String(value);
-  // Date-only normalization for ISO timestamps.
-  if (/date/i.test(key) && /^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
-  return s;
-}
-
-/** Order keys: priority fields first (those present), then the rest sorted. */
-function orderedKeys(permit: Record<string, unknown>): string[] {
-  const present = Object.keys(permit);
-  const priority = PRIORITY_FIELDS.filter((k) => present.includes(k));
-  const rest = present.filter((k) => !priority.includes(k)).sort();
-  return [...priority, ...rest];
-}
 
 export function PermitViewer({
   permitNumber,
@@ -111,12 +90,8 @@ export function PermitViewer({
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
             Permit {permitNumber}
-            {permit?.status ? <Badge variant="outline">{String(permit.status)}</Badge> : null}
-            {permit?.permit_type_definition ? (
-              <span className="text-sm font-normal text-muted-foreground">
-                {String(permit.permit_type_definition)}
-              </span>
-            ) : null}
+            {permit?.status ? <StatusBadge status={permit.status} /> : null}
+            {permit?.permit_type_definition ? <PermitTypeBadge type={permit.permit_type_definition} /> : null}
           </DialogTitle>
           <DialogDescription>
             SF DBI permit record (live SODA) with review addenda and contractor firms from the warehouse.
@@ -140,23 +115,10 @@ export function PermitViewer({
               return p ? <LocationMap points={[p]} height={220} /> : null;
             })()}
 
-            {/* Full field table — 2 column prop:value */}
+            {/* Full field table — 2 column prop:value (every field, badged) */}
             <section>
               <h3 className="mb-2 text-sm font-semibold">Permit details</h3>
-              <div className="overflow-hidden rounded-md ring-1 ring-border/40">
-                <Table>
-                  <TableBody>
-                    {orderedKeys(permit).map((key) => (
-                      <TableRow key={key}>
-                        <TableCell className="w-1/3 bg-muted/30 align-top font-medium text-muted-foreground">
-                          {key}
-                        </TableCell>
-                        <TableCell className="align-top">{fmtValue(key, permit[key])}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <PropValueTable data={permit} order={PRIORITY_FIELDS} />
             </section>
 
             {/* Contractor firms */}
@@ -209,7 +171,9 @@ export function PermitViewer({
                       {data.addenda.map((a, i) => (
                         <TableRow key={i}>
                           {["addenda_number", "step", "station", "department", "addenda_status", "review_results", "start_date", "finish_date", "approved_date"].map((h) => (
-                            <TableCell key={h} className="whitespace-nowrap text-xs">{fmtValue(h, a[h])}</TableCell>
+                            <TableCell key={h} className="whitespace-nowrap text-xs">
+                              {h === "addenda_status" ? <StatusBadge status={a[h]} /> : fmtValue(h, a[h])}
+                            </TableCell>
                           ))}
                         </TableRow>
                       ))}

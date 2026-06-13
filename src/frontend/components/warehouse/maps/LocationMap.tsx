@@ -1,95 +1,38 @@
 /**
- * @fileoverview LocationMap — a Google Map that drops a marker on each point,
- * fitting bounds to show them all, with optional clustering when there are
- * many. Renders nothing when no key is configured or no points are mappable
- * (progressive enhancement).
+ * @fileoverview LocationMap — drops a clustered marker on each point using the
+ * shadcn Leaflet map (`@/components/ui/map`), fitting bounds to show them all.
  *
- * Used anywhere location-bearing rows are shown (permit history, permit
- * viewer, query results with lat/lng or SODA `location`).
+ * Keyless (OpenStreetMap/CARTO tiles) — no Google Maps key needed for display.
+ * Renders nothing when there are no mappable points. Used anywhere
+ * location-bearing rows appear (permit history, permit viewer, query results
+ * with lat/lng or SODA `location`).
  */
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Map, MapMarker, MapMarkerClusterGroup, MapTileLayer } from "@/components/ui/map";
 
-import { loadGoogleMaps, type MapPoint } from "./loader";
+import type { MapPoint } from "./loader";
 
 export interface LocationMapProps {
   points: MapPoint[];
   /** CSS height for the map surface. */
   height?: number;
-  /** Cluster markers when the count exceeds this (default 20). */
-  clusterThreshold?: number;
 }
 
-export function LocationMap({ points, height = 280, clusterThreshold = 20 }: LocationMapProps) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "disabled">("loading");
+export function LocationMap({ points, height = 280 }: LocationMapProps) {
+  if (!points.length) return null;
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!points.length) {
-      setStatus("disabled");
-      return;
-    }
-    void (async () => {
-      const google = await loadGoogleMaps();
-      if (cancelled) return;
-      if (!google?.maps || !ref.current) {
-        setStatus("disabled");
-        return;
-      }
-      try {
-        const map = new google.maps.Map(ref.current, {
-          mapId: "DEMO_MAP_ID",
-          disableDefaultUI: false,
-          clickableIcons: false,
-          colorScheme: "DARK",
-        });
-        const bounds = new google.maps.LatLngBounds();
-        const markers = points.map((p) => {
-          const position = { lat: p.lat, lng: p.lng };
-          bounds.extend(position);
-          return new google.maps.marker.AdvancedMarkerElement({ position, title: p.title, map });
-        });
-        map.fitBounds(bounds);
-        if (points.length === 1) map.setZoom(16);
-
-        // Optional clustering for dense sets, loaded from CDN on demand.
-        if (markers.length > clusterThreshold) {
-          try {
-            // URL kept in a variable so TS/Vite don't try to resolve it at build.
-            const clustererUrl = "https://unpkg.com/@googlemaps/markerclusterer@2/dist/index.esm.js";
-            const mod: any = await import(/* @vite-ignore */ clustererUrl);
-            if (!cancelled && mod?.MarkerClusterer) {
-              new mod.MarkerClusterer({ map, markers });
-            }
-          } catch {
-            /* markers already on the map; clustering is best-effort */
-          }
-        }
-        setStatus("ready");
-      } catch {
-        setStatus("disabled");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [points, clusterThreshold]);
-
-  if (status === "disabled" && !points.length) return null;
+  const bounds = points.map((p) => [p.lat, p.lng] as [number, number]);
 
   return (
-    <div className="relative overflow-hidden rounded-md ring-1 ring-border/40">
-      <div ref={ref} style={{ height }} className="w-full" />
-      {status !== "ready" ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-          {status === "loading" ? "Loading map…" : "Map unavailable (set GOOGLE_MAPS_API_KEY to enable)."}
-        </div>
-      ) : null}
-    </div>
+    <Map bounds={bounds} height={height}>
+      <MapTileLayer />
+      <MapMarkerClusterGroup>
+        {points.map((p, i) => (
+          <MapMarker key={`${p.lat},${p.lng},${i}`} position={[p.lat, p.lng]} title={p.title} />
+        ))}
+      </MapMarkerClusterGroup>
+    </Map>
   );
 }

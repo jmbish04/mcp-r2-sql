@@ -57,6 +57,24 @@ export async function getCloudflareAccountId(env: Env): Promise<string | undefin
 }
 
 /**
+ * Google Maps Platform browser key (Places autocomplete + Geocoding).
+ * Stored as the `GOOGLE_MAPS_API` Secrets Store secret.
+ */
+export async function getGoogleMapsApiKey(env: Env): Promise<string | undefined> {
+  return getSecret(env, "GOOGLE_MAPS_API");
+}
+
+/** Google Programmable Search (Custom Search JSON API) key. */
+export async function getGoogleSearchApiKey(env: Env): Promise<string | undefined> {
+  return getSecret(env, "GOOGLE_SEARCH_API_KEY");
+}
+
+/** Google Programmable Search engine id (CSE id). */
+export async function getGoogleSearchCseId(env: Env): Promise<string | undefined> {
+  return getSecret(env, "GOOGLE_SEARCH_CSE_ID");
+}
+
+/**
  * HMAC key used to sign the session cookie.
  *
  * Stored in the `SESSIONS` KV namespace (not the Secrets Store) so it can be

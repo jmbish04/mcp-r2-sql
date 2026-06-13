@@ -40,7 +40,7 @@ type SeriesKey = (typeof SERIES)[number]["key"];
 /** A merged monthly row across the three permit types. */
 type MonthRow = { month: string } & Partial<Record<SeriesKey, number>>;
 
-const AXIS_TICK = { fill: "hsl(var(--foreground))", fontSize: 11 } as const;
+const AXIS_TICK = { fill: "var(--foreground)", fontSize: 11 } as const;
 
 const chartConfig: ChartConfig = {
   building: { label: "Building", color: "var(--chart-1)" },
@@ -139,7 +139,7 @@ export function PermitsActivityChart() {
         ) : (
           <ChartContainer config={chartConfig} className="aspect-auto h-[260px] w-full">
             <BarChart accessibilityLayer data={rows} margin={{ left: 8, right: 8, top: 16 }}>
-              <CartesianGrid vertical={false} stroke="hsl(var(--foreground))" strokeOpacity={0.08} />
+              <CartesianGrid vertical={false} stroke="var(--foreground)" strokeOpacity={0.08} />
               <XAxis
                 dataKey="month"
                 tickLine={false}
@@ -166,9 +166,10 @@ export function PermitsActivityChart() {
               <Bar dataKey={active} fill="var(--chart-1)" radius={3} maxBarSize={42}>
                 <LabelList
                   dataKey={active}
-                  position="top"
-                  className="fill-foreground"
+                  position="insideTop"
+                  fill="#ffffff"
                   fontSize={10}
+                  fontWeight={600}
                   formatter={((v: number) => (Number(v) >= 1 ? compactNumber(Number(v)) : "")) as never}
                 />
               </Bar>
