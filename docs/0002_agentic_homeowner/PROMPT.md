@@ -106,10 +106,43 @@ they still obey the shared style profile.
 | contractor_reputation | {licenseNo?|name} → {contractor, permitCount, completionRate, avgDaysToIssue, flags[], namedQueryId} |
 | permit_timeline | {permitNo?|parcel} → {stages:[{stage,enteredAt,days}], totalDays, namedQueryId} |
 | redflag_scan | {address?|parcel|bbox} → {flags:[{rule,severity,evidenceQueryId,count}]} |
+| find_permits_by_tag | {categories:string[], neighborhood?, address?|bbox, sinceYear?, limit?} → {rows[], byCategory:{[cat]:permitNo[]}, namedQueryId} (joins permit_tags from the enrichment pipeline) |
 
 Scope tools (find_similar_permits, inspector_profile, contractor_reputation, permit_timeline,
 redflag_scan) build guarded R2 SQL via the data-platform client and return rows **plus** a reusable
 `namedQueryId` so the agent drops the same query into a spec block.
+
+## Free-text enrichment pipeline (Workers AI structured tagging)
+Persona 6/7/8 signals live only in free text. Tag permit `description`, `permit_addenda` comments,
+and `inspection_description` into a `category → permit-numbers` map stored in `permit_tags`.
+
+- **Model** `@cf/moonshotai/kimi-k2.6` (~261k ctx) via a `MODEL_TAGGER` var (add to wrangler.jsonc).
+- **Structured output** (`response_format`):
+```ts
+const permitExtractionSchema = { type:"json_schema", json_schema: { type:"object", properties:{
+  tags:{ type:"array", items:{ type:"object", properties:{
+    category:{ type:"string", description:"e.g. windows:inkind|new|street_facing, skylight:inkind|new_setback, roof:repair|replace, solar:pv, electrical:panel_upgrade, kitchen:inkind|reconfig, bath:inkind|reconfig, adu, planning:slope_25pct|planning_commission|historic_review|setback_variance, change_of_use, post_disaster:fire|storm, code_upgrade_required, nov_abatement, unpermitted_legalization, open_permit, phased_build, red_flag:timeline_anomaly|fast_high_value|owner_builder_high_value" },
+    permits:{ type:"array", items:{ type:"string" } }
+  }, required:["category","permits"] } }
+}, required:["tags"] } };
+```
+- **System prompt**: persona-aware SF DBI analyst that classifies the concatenated records into the
+  taxonomy above (the user supplied the canonical prompt; keep it, extend taxonomy as needed). Build
+  prompts as ES6 template literals (repo rule), not `.join('\n')`.
+- **Input shaping**: concatenated markdown, one `permit_number: text` per line; separate corpora for
+  (a) `building_permits.description`, (b) `permit_addenda` comments grouped by `permit_number`,
+  (c) inspection comments. Chunk to fit context; tag chunks with `external_reference`.
+- **3 endpoints / modes**:
+  - `POST /api/enrich/sync` — `env.AI.run(MODEL_TAGGER, { messages, response_format })` for a single
+    permit / small chunk.
+  - `POST /api/enrich/batch` — `env.AI.run(MODEL_TAGGER, { queueRequest:true, requests:[{messages,
+    response_format, external_reference}] })`; record `enrichment_runs`.
+  - `GET /api/enrich/poll?request_id=` — `env.AI.run(MODEL_TAGGER, { request_id })`; on completion
+    upsert results into `permit_tags(permit_number, category, source, run_id, model)`.
+  (Batch/poll types may trail runtime; `// @ts-expect-error` is acceptable per the user's sample.)
+- **Consumption**: `permit_tags` joins into named-query templates + a `tag` filter on `permits_table`
+  and charts; the agent's `find_permits_by_tag` tool reads it. Refresh via admin/cron, incremental on
+  new permits (rows carry `run_id`).
 
 ## State machine (enforce in system prompt)
 `INTENT_CLARIFY → GOAL_SET (set_goal) → PLAN_PROPOSED (save_data_plan) → PLAN_APPROVED (user
@@ -118,8 +151,9 @@ confirms) → SPEC_DRAFT (propose_dashboard) → DASHBOARD_LIVE (approve_dashboa
 is approved; never auto-approve.** Always `list_context` to ground reasoning; obey the 8 SQL gotchas.
 
 ## Build order
-Follow TASKS.json: A1→A2 (schema+seed), A3→A5 (APIs+named queries), B1→B3 (spec validator + agent
-tools + agent prompt), B4 (custom-chart dynamic-worker pipeline), C0 (style-profile + badge utils),
+Follow TASKS.json: A1→A2 (schema+seed), A3→A5 (APIs+named queries), A6→A8 (enrichment schema +
+sync/batch/poll providers+routes + corpus tagging job), B1→B3 (spec validator + agent tools +
+agent prompt), B4 (custom-chart dynamic-worker pipeline), C0 (style-profile + badge utils),
 C1 (full shadcn Recharts catalog) → C1b (gantt + timeline-steps + maps) → C1c (standard permits
 table) → C2 (renderer + data-scope filter bar + Save alert + skeletons) → C3 (thread switcher +
 assistant modal) → C4 (context panel) → C5 (page + nav + permit viewport w/ gantt/timeline/addenda),

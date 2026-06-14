@@ -62,6 +62,8 @@ mandatory** in the NL→SQL prompt and named-query templates.
 - **agentic_sf_context** — id, category, topic, content, data_signals(json), homeowner_action, priority, enabled, created_at, updated_at  (seeded from agentic_sf_context.seed.json)
 - **named_queries** — id, thread_id?, label, sql, params(json), created_at  (reusable guarded SQL referenced by spec blocks; thread_id null = global template)
 - **thread_filters** — id, thread_id→threads, filters(json FilterState), is_active(bool), label?, created_at  (global filters propagate to bound blocks)
+- **permit_tags** — id, permit_number, category, source(description|addenda|inspection), run_id, model, confidence?, created_at  (Workers-AI free-text enrichment output, §6.4; index on category and permit_number)
+- **enrichment_runs** — id, kind(description|addenda|inspection), status(queued|running|done|failed), request_id?, external_reference?, model, counts(json), created_at, updated_at  (tracks batch tagging jobs)
 
 All via Drizzle + `drizzle-kit generate`; barrel `index.ts`; re-export from `db/schema.ts`.
 
@@ -100,6 +102,26 @@ produced by a sandboxed Dynamic Worker (`globalOutbound:null`). The worker retur
 artifact**: preferred = a known-grammar chart spec (Vega-Lite JSON) rendered by a vetted client lib;
 fallback = sanitized server-rendered SVG embedded read-only. The renderer treats it as a first-class
 block. No worker-authored JS/React reaches the browser; the shared style profile still applies.
+
+### 6.4 Free-text enrichment (Workers AI structured tagging)
+Persona 6/7/8 signals (in-kind vs new, street-facing, 25%-slope/Planning triggers, post-disaster
+rebuild, phasing) live only in **free text**. A Workers-AI pipeline tags it into a `category →
+permit-numbers` map stored in `permit_tags`, consumable as a first-class filter. Details in
+[RESEARCH.md §4](RESEARCH.md):
+- **Model** `@cf/moonshotai/kimi-k2.6` (~261k ctx) via `MODEL_TAGGER`; `response_format` json_schema
+  forces `{tags:[{category,permits[]}]}`; persona-aware system prompt (exact schema/prompt in
+  [PROMPT.md §Enrichment](PROMPT.md)).
+- **Input** = concatenated markdown of `permit_number: text` (separate corpora for descriptions,
+  addenda-comments-by-permit, inspection comments).
+- **3 modes**: sync (single/small), batch (`queueRequest:true` + `external_reference`), poll
+  (`request_id`). Results upsert `permit_tags`; jobs tracked in `enrichment_runs`; admin/cron-triggered,
+  incremental on new permits.
+- **Taxonomy** seeded + extensible (windows/skylight in-kind|new|street_facing, roof/solar,
+  electrical:panel_upgrade, kitchen/bath in-kind|reconfig, adu, planning:slope_25pct|planning_commission|
+  historic_review, change_of_use, post_disaster:*, code_upgrade_required, nov_abatement,
+  unpermitted_legalization, open_permit, phased_build, red_flag:*).
+- **Consumption**: `permit_tags` joins into named-query templates + a `tag` filter on `permits_table`
+  and charts; agent gets a `find_permits_by_tag` tool. Directly serves personas 6/7/8.
 
 ## 7. Agent tool catalog (on ChatBroker, alongside existing analytics tools)
 
@@ -145,8 +167,9 @@ is an explicit user action surfaced as an assistant-ui confirm. Transitions↔to
 
 `/api/threads` (CRUD + `:id` detail w/ messages, live spec, active filters); `/api/threads/:id/plans`
 (+ `/approve`); `/api/threads/:id/specs` (+ `/approve`, `PATCH /blocks`); `/api/context` (CRUD);
-`/api/threads/:id/filters`. Reuse `POST /api/r2/query` (guarded) for all block data. Each family
-`/health` + D1 logging per existing conventions.
+`/api/threads/:id/filters`; **enrichment** `/api/enrich/sync`, `/api/enrich/batch`,
+`/api/enrich/poll?request_id=`, `GET /api/permit-tags` (filter by category/permit). Reuse
+`POST /api/r2/query` (guarded) for all block data. Each family `/health` + D1 logging per conventions.
 
 ## 11. Acceptance criteria
 
@@ -168,7 +191,12 @@ is an explicit user action surfaced as an assistant-ui confirm. Transitions↔to
 8. Follow-up chat in the bottom-right modal edits the live dashboard via `update_dashboard_block`
    (new spec version); thread switching swaps the whole experience.
 9. At least the 8 validated use cases are expressible as named-query templates; `agentic_sf_context`
-   seeded (62) + CRUD-editable and measurably grounds agent output.
+   seeded (78) + CRUD-editable and measurably grounds agent output.
+9a. **Free-text enrichment** runs (sync + batch + poll) and populates `permit_tags` from permit
+    descriptions + addenda comments; tags are filterable in `permits_table`/charts and via the agent's
+    `find_permits_by_tag` tool — demonstrably enabling persona 6/7/8 queries (e.g. "street-facing
+    window permits", "permits that triggered Planning Commission / 25% slope", "phased roof→solar→
+    kitchen builds nearby", "post-disaster rebuilds").
 10. All `/api/*` zod-openapi typed + in `/openapi.json`; `pnpm lint && pnpm build` green; deployed via
     `pnpm run deploy`; charts/tables show skeletons while loading.
 
