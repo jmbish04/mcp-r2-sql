@@ -5,37 +5,48 @@ domain/persona, system design). This is the grounding for `PRD.md` / `TASKS.json
 
 ---
 
-## 1. Key architectural decision — how per-thread bespoke dashboards are rendered
+## 1. Render architecture — HYBRID (CONFIRMED by user)
 
-**Recommendation: declarative dashboard spec, NOT dynamic-Worker-generated UI.**
+**Primary = declarative `DashboardSpec`. Escape hatch = sandboxed dynamic-worker "custom" charts
+rendered as first-class blocks.** Most UI is a JSON `DashboardSpec` (ordered blocks referencing a
+**fully-specified catalog** of vetted chart/map/table/narrative components + guarded SQL), persisted
+per thread in D1 and drawn by one spec-driven `DashboardRenderer` in the deployed Astro bundle.
+Follow-up chat edits are **JSON patches** to the spec.
 
-The agent emits a **JSON `DashboardSpec`** (ordered blocks referencing a fixed catalog of vetted
-chart/map/narrative components + guarded SQL). The spec is persisted per thread in D1; a single
-spec-driven `DashboardRenderer` (part of the already-deployed Astro bundle) renders it. Follow-up
-chat edits are **JSON patches** to the spec (new version), not regenerated code.
+When the homeowner asks for something the declarative catalog can't express, the agent renders a
+**custom chart in a Dynamic Worker** (`WORKER_LOADERS`, `globalOutbound:null`, no network) that
+returns an **inert artifact** — preferably a known-grammar chart spec (e.g. Vega-Lite JSON) drawn by
+a vetted client renderer, otherwise **server-rendered, sanitized SVG** embedded read-only. It shows
+on the page as a `custom` block that looks like any other chart. **No worker-authored JS/React ever
+executes in the browser** — that is the security line that keeps the hybrid safe.
 
-Why not "dynamic Workers build the UI" (the prompt's tentative idea):
-- **Worker Loaders (`WORKER_LOADERS` / `env.LOADER.get(id, …)`) is open-beta, paid-only**, and
-  Cloudflare positions it as a **sandbox for running untrusted/AI-generated code server-side**
-  (Code Mode), not a UI delivery mechanism. Refs:
+Why this split (not "dynamic Workers build all the UI"):
+- **Worker Loaders is open-beta, paid-only**, positioned by Cloudflare as a **server-side sandbox
+  for untrusted/AI-generated code** (Code Mode), not a UI-delivery mechanism. Refs:
   `https://developers.cloudflare.com/dynamic-workers/` ,
   `https://developers.cloudflare.com/changelog/post/2026-03-24-dynamic-workers-open-beta/`.
-- The isolate protects **our Worker** from generated code; it does **nothing** to stop XSS in the
-  rendered page — we'd still be shipping LLM-authored code to homeowners' browsers.
-- It defeats Astro island hydration (build-time component graph) and re-introduces cold-starts on
-  every per-thread edit.
+- Its isolate protects **our Worker**, not the browser; emitting LLM-authored React to homeowners is
+  an XSS surface. So dynamic workers produce **data/inert artifacts**, never executable UI.
+- Declarative blocks fit Astro island hydration, have no cold start, and edit as cheap JSON patches;
+  custom blocks are the rare, sandboxed exception. Dynamic workers also cover the optional
+  **derived-metric compute** case (agent transform → JSON → spec block) via the same sandbox.
 
-The declarative-spec approach wins on security (no arbitrary code in the public UI — renderer only
-honors an allowlist of block types), latency (no extra cold start), Astro fit (each block is a
-normal hydrated island), editability (cheap JSON patch), and storage (versioned spec rows in D1).
+### 1a. Shared chart STYLE PROFILE (every chart, declarative or custom)
+One central style module so the user **never** sees black-on-black text:
+- All label/axis/legend text = `var(--foreground)` (NEVER `hsl(var(--foreground))`); bar value
+  labels white, inside/top.
+- Single **blue** family in graduated hues (shadcn `--chart-1..5` blue ramp / `color-mix` toward
+  background), not a rainbow — identical across every chart family.
+- **Every** shadcn Recharts family (area, bar, line, pie/donut, radar, radial, scatter + their
+  documented variants) is represented with its **full API config surface** exposed via the spec
+  `encoding`, all sharing this profile. Custom (dynamic-worker) charts must adopt the same profile.
 
-**Where Worker Loaders *may* add value later (optional, Phase 5+):** sandboxed per-thread
-**derived-metric compute** — if a homeowner asks for a computed metric the catalog can't precompute,
-the agent emits a pure transform run in a Dynamic Worker with `globalOutbound: null` (no network);
-its **output is plain JSON folded back into the same spec**. Never UI code. This keeps the door open
-to the prompt's "dynamic workers" intent without the XSS/architecture cost.
-
-> ⚠️ This is the one decision to confirm before building — it changes the whole build shape.
+### 1b. Centralized BADGE-COLOR utils (consistency everywhere)
+A single module (`src/frontend/lib/dbi-badges.ts`) is the ONLY source of badge colors so a value
+looks identical on every page: permit **trade category** (e.g. `building` = black bg / white text),
+permit **type**, **status**, and SF **neighborhood** (e.g. `Portola` = purple, always). Cost badges
+render rounded + green ($300 / $42k / $1.2M). Consumed by the permits table, permit viewport, and any
+block showing these fields.
 
 ---
 
