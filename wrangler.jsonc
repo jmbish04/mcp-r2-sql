@@ -143,9 +143,32 @@
       "secret_name": "WORKER_API_KEY",
     },
     {
-      "binding": "AI_GATEWAY_TOKEN",
+      // Agent/automation access key (supports the ?AGENT_AUTH= path). Maps to
+      // the same WORKER_API_KEY secret as the regular binding.
+      "binding": "AGENTIC_WORKER_API_KEY",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "WORKER_API_KEY",
+    },
+    {
+      // Binding name aligned to the secret + health.ts probe (was AI_GATEWAY_TOKEN).
+      "binding": "CLOUDFLARE_AI_GATEWAY_TOKEN",
       "store_id": "8c42fa70938644e0a8a109744467375f",
       "secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN",
+    },
+    {
+      "binding": "CLOUDFLARE_IMAGES_STREAM_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_IMAGES_STREAM_TOKEN",
+    },
+    {
+      "binding": "CF_BROWSER_RENDER_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN",
+    },
+    {
+      "binding": "JULES_API_KEY",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "JULES_API_KEY",
     },
     {
       "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
@@ -197,6 +220,16 @@
       "binding": "GOOGLE_SEARCH_CSE_ID",
       "store_id": "8c42fa70938644e0a8a109744467375f",
       "secret_name": "GOOGLE_SEARCH_CSE_ID",
+    },
+    {
+      "binding": "GEMINI_API_KEY",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GEMINI_API_KEY",
+    },
+    {
+      "binding": "NOTEBOOKLM_AUTH_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "NOTEBOOKLM_AUTH_TOKEN",
     },
   ],
   //  wrangler vectorize create mcp-r2-sql-career-memory --preset @cf/baai/bge-large-en-v1.5
