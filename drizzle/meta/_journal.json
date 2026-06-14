@@ -22,6 +22,13 @@
       "when": 1781478339341,
       "tag": "0002_sloppy_cerise",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1781479599838,
+      "tag": "0003_lumpy_shatterstar",
+      "breakpoints": true
     }
   ]
 }
