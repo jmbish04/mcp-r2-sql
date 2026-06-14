@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,8 @@ import {
 import { apiSend } from "@/lib/api";
 import { compactNumber } from "@/lib/format";
 
+import { getConfigOptions } from "@/lib/config-options";
+
 import { AddressAutocomplete } from "./maps/AddressAutocomplete";
 import { PermitsTable } from "./PermitsTable";
 import { PermitViewer } from "./PermitViewer";
@@ -46,8 +48,8 @@ import { PropValueTable } from "./PropValueTable";
 import { TableSkeleton } from "./TableSkeleton";
 import type { PermitsResponse, VettingResponse } from "./types";
 
-/** Vetting role options for the dropdown. */
-const ROLES = [
+/** Fallback vetting roles if the config API is unavailable (mirrors the seed). */
+const ROLE_FALLBACK = [
   "contractor",
   "architect",
   "structural engineer",
@@ -57,7 +59,7 @@ const ROLES = [
   "hvac",
   "plumber",
   "HIS",
-] as const;
+];
 
 // ---------------------------------------------------------------------------
 // Mode 1: contractor / architect / engineer
@@ -68,8 +70,18 @@ function ContractorDialog({ onViewPermit }: { onViewPermit: (n: string) => void 
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
   const [role, setRole] = useState<string>("");
+  const [roles, setRoles] = useState<{ value: string; label: string }[]>(
+    ROLE_FALLBACK.map((r) => ({ value: r, label: r })),
+  );
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<VettingResponse | null>(null);
+
+  // Data-driven roles from the config registry (falls back to ROLE_FALLBACK).
+  useEffect(() => {
+    void getConfigOptions("vetting_role").then((opts) => {
+      if (opts.length) setRoles(opts.map((o) => ({ value: o.value, label: o.label })));
+    });
+  }, []);
 
   const submit = useCallback(async () => {
     setBusy(true);
@@ -117,9 +129,9 @@ function ContractorDialog({ onViewPermit }: { onViewPermit: (n: string) => void 
               <SelectValue placeholder="Any role" />
             </SelectTrigger>
             <SelectContent>
-              {ROLES.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {r}
+              {roles.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
                 </SelectItem>
               ))}
             </SelectContent>

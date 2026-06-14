@@ -1,0 +1,29 @@
+---
+/**
+ * /admin/config — self-serve admin for data-driven configurations
+ * (goal categories, vetting roles, permit badge colors, neighborhoods, …).
+ * Backed by /api/config-options; managed by the <ConfigOptionsAdmin> island.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { ConfigOptionsAdmin } from "@/components/admin/ConfigOptionsAdmin";
+---
+
+<BaseLayout
+  title="Configuration admin"
+  description="Manage data-driven option lists (goal categories, vetting roles, permit badge colors, neighborhoods) — add, relabel, recolor, reorder, or deactivate without a deploy."
+>
+  <main class="container mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">⚙️</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Configuration admin</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Every option list in the app is data-driven from D1. Add new options, relabel or recolor
+        badges, reorder, or mark options inactive — changes take effect immediately, no redeploy.
+      </p>
+    </header>
+
+    <ConfigOptionsAdmin client:load />
+  </main>
+</BaseLayout>

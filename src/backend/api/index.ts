@@ -34,6 +34,7 @@ import { projectsRouter } from "./routes/projects";
 import { seedRouter } from "./routes/seed";
 import { settingsRouter } from "./routes/settings";
 import { aiRouter } from "./routes/ai";
+import { configOptionsRouter } from "./routes/config-options";
 import { diagnosticsRouter } from "./routes/diagnostics";
 import { permitsRouter } from "./routes/permits";
 import { r2Router } from "./routes/r2";
@@ -136,6 +137,7 @@ app.route("/api/r2", r2Router);
 app.route("/api/permits", permitsRouter);
 app.route("/api/diagnostics", diagnosticsRouter);
 app.route("/api/ai", aiRouter);
+app.route("/api/config-options", configOptionsRouter);
 app.route("/api/vetting", vettingRouter);
 
 app.route("/api/__client-error", clientErrorRouter);

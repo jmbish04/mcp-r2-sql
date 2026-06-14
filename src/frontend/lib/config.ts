@@ -70,6 +70,7 @@ export const siteConfig: SiteConfig = {
       label: "System",
       items: [
         { href: "/notifications", label: "Notifications" },
+        { href: "/admin/config", label: "Config Admin" },
         { href: "/settings", label: "Settings" },
         { href: "/playbook", label: "Playbook" },
         { href: "/openapi.json", label: "OpenAPI" },
