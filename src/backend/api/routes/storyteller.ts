@@ -5,6 +5,8 @@
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
+import { generateStructuredOutput } from "@/backend/ai/providers/index";
+import { CHART_FAMILIES } from "@/backend/storyteller/spec";
 import {
   approvePlan,
   approveSpec,
@@ -115,6 +117,41 @@ storytellerRouter.openapi(
 storytellerRouter.openapi(
   createRoute({ method: "get", path: "/named-queries", tags: ["Storyteller"], summary: "List named queries", operationId: "stNamedQueries", request: { query: z.object({ threadId: z.string().optional() }) }, responses: ok(z.object({ queries: z.array(anyObj) })) }),
   async (c) => c.json({ queries: await listNamedQueries(c.env, c.req.valid("query").threadId) }, 200),
+);
+
+// Custom chart: AI composes a catalog chart (family + encoding) for a request
+// over the resolved rows. Inert artifact (a catalog chart spec) — no code exec.
+storytellerRouter.openapi(
+  createRoute({
+    method: "post", path: "/threads/{id}/custom", tags: ["Storyteller"], summary: "AI-compose a custom catalog chart for a request", operationId: "stCustom",
+    request: { params: z.object({ id: z.string() }), body: { content: { "application/json": { schema: z.object({ prompt: z.string(), query: anyObj, filters: anyObj.optional() }) } } } },
+    responses: ok(z.object({ ok: z.boolean(), family: z.string().optional(), encoding: anyObj.optional(), rows: z.array(anyObj), error: z.string().optional() })),
+  }),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const b = c.req.valid("json");
+    const filters = b.filters ?? ((await getActiveFilters(c.env, id))?.filters as Record<string, unknown> | undefined) ?? {};
+    const res = await runBlockQuery(c.env, b.query as never, filters);
+    if (!res.ok) return c.json({ ok: false, rows: [], error: res.errors[0]?.message ?? "query failed" }, 200);
+    const columns = res.rows.length ? Object.keys(res.rows[0]) : [];
+    try {
+      const pick = await generateStructuredOutput(c.env, {
+        messages: [
+          { role: "system", content: `You choose the best chart from a fixed catalog to answer a user's request over tabular rows. Reply with the JSON object only.` },
+          { role: "user", content: `Request: ${b.prompt}\nColumns: ${columns.join(", ")}\nAllowed chart families: ${CHART_FAMILIES.join(", ")}\nChoose one family and an encoding mapping its x (category/date column), y (numeric column(s)), and optional series. Use only the listed columns.` },
+        ],
+        schema: z.object({
+          family: z.enum(CHART_FAMILIES as unknown as [string, ...string[]]),
+          encoding: z.object({ x: z.string().optional(), y: z.union([z.string(), z.array(z.string())]).optional(), series: z.string().optional(), value: z.string().optional(), valueLabels: z.boolean().optional(), stacked: z.boolean().optional() }),
+        }),
+        schemaName: "custom_chart_pick",
+        temperature: 0.1,
+      });
+      return c.json({ ok: true, family: pick.family, encoding: pick.encoding, rows: res.rows }, 200);
+    } catch (err) {
+      return c.json({ ok: false, rows: res.rows, error: err instanceof Error ? err.message : String(err) }, 200);
+    }
+  },
 );
 
 storytellerRouter.openapi(

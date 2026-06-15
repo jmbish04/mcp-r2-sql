@@ -1,0 +1,30 @@
+---
+/**
+ * /storyteller/context — self-serve admin for agentic_sf_context, the curated
+ * knowledge base the storyteller agent reasons over (DBI culture, permit
+ * gotchas, corruption red-flags, homeowner playbooks). Backed by /api/context.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { ContextConfigPanel } from "@/components/storyteller";
+---
+
+<BaseLayout
+  title="Agent context"
+  description="Curate the knowledge the storyteller agent reasons over — DBI culture, permit gotchas, corruption red-flags, and homeowner playbooks. Add, edit, or disable entries without a deploy."
+>
+  <main class="container mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">🧠</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Agent context</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        This is the storyteller agent's knowledge base. Every entry sharpens how it reasons about SF
+        DBI permit data — known gotchas, corruption signals, and what a homeowner should actually do.
+        Changes take effect immediately, no redeploy.
+      </p>
+    </header>
+
+    <ContextConfigPanel client:load />
+  </main>
+</BaseLayout>

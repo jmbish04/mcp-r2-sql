@@ -4,7 +4,7 @@
  */
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 import { getDb } from "@/backend/db";
 import { agenticSfContext } from "@db/schemas";

@@ -5,7 +5,7 @@
  */
 
 import { tool, type ToolSet } from "ai";
-import { and, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { buildAnalyticsTools } from "@/backend/ai/agents/analytics";
