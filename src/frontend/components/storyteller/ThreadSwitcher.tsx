@@ -102,8 +102,8 @@ export function ThreadSwitcher({
               <div className="flex flex-col gap-1.5">
                 <Label>Goal category (optional)</Label>
                 <Select value={goalCategory} onValueChange={(v) => setGoalCategory(v ?? "")}>
-                  <SelectTrigger><SelectValue placeholder="Let the agent decide" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Let the agent decide" /></SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false} className="max-h-[16rem]">
                     {goalCategories.map((g) => (
                       <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
                     ))}
