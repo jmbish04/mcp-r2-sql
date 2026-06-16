@@ -40,8 +40,20 @@ export class StorytellerAgent extends AIChatAgent<Env> {
       messages: await convertToModelMessages(this.messages as UIMessage[]),
       tools: buildStorytellerTools(this.env, threadId) as ToolSet,
       stopWhen: stepCountIs(10),
+      // Log the *real* error so it shows up in observability instead of a bare
+      // `websocket:close` (the stream otherwise masks it).
+      onError: ({ error }) => {
+        console.error(
+          `StorytellerAgent[${threadId}] stream error:`,
+          error instanceof Error ? (error.stack ?? error.message) : String(error),
+        );
+      },
       onFinish,
     });
-    return result.toUIMessageStreamResponse();
+    // Forward the actual error text to the client so the UI can show it
+    // (copyable) rather than rendering an empty assistant bubble.
+    return result.toUIMessageStreamResponse({
+      onError: (error) => (error instanceof Error ? error.message : String(error)),
+    });
   }
 }

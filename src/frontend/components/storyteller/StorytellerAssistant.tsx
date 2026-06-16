@@ -32,6 +32,7 @@ import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MarkdownText } from "@/components/chat/MarkdownText";
+import { ChatErrorNotice, TypingIndicator } from "@/components/chat/ChatErrorNotice";
 
 import { STORYTELLER_EVENTS, REFRESHING_TOOLS } from "./events";
 
@@ -104,6 +105,15 @@ export function StorytellerAssistant({ threadId }: { threadId: string }) {
                 </div>
               </ThreadPrimitive.Empty>
               <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
+              {chat.status === "submitted" || (chat.isStreaming && !chat.error) ? <TypingIndicator /> : null}
+              {chat.error ? (
+                <ChatErrorNotice
+                  error={chat.error}
+                  surface="storyteller-agent"
+                  context={{ thread: threadId, model: "getChatModel (Workers AI)" }}
+                  onRetry={() => void chat.regenerate()}
+                />
+              ) : null}
             </ThreadPrimitive.Viewport>
             <ComposerPrimitive.Root className="flex items-end gap-2 border-t border-border px-3 py-3">
               <ComposerPrimitive.Input

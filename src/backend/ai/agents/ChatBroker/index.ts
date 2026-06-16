@@ -49,9 +49,17 @@ export class ChatBroker extends AIChatAgent<Env> {
       // specific tool map (same pattern as the Cloudflare agents starter).
       tools: buildAnalyticsTools(this.env) as ToolSet,
       stopWhen: stepCountIs(8),
+      onError: ({ error }) => {
+        console.error(
+          "ChatBroker stream error:",
+          error instanceof Error ? (error.stack ?? error.message) : String(error),
+        );
+      },
       onFinish,
     });
 
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      onError: (error) => (error instanceof Error ? error.message : String(error)),
+    });
   }
 }
