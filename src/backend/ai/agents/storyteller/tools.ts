@@ -74,7 +74,11 @@ export function buildStorytellerTools(env: Env, threadId: string): ToolSet {
           const r = await fetch(url.toString());
           const j = (await r.json()) as any;
           const res = j.results?.[0];
-          if (!res) return { ok: false, error: "no geocode result" };
+          if (!res) {
+            // Surface Google's real status (e.g. REQUEST_DENIED when the
+            // Geocoding API isn't enabled, ZERO_RESULTS, OVER_QUERY_LIMIT).
+            return { ok: false, error: `geocode ${j.status ?? "failed"}${j.error_message ? `: ${j.error_message}` : ""}` };
+          }
           const comp = (type: string) => res.address_components?.find((c: any) => c.types.includes(type))?.long_name ?? "";
           return {
             ok: true, lat: res.geometry?.location?.lat, lng: res.geometry?.location?.lng,

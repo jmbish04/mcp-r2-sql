@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MarkdownText } from "@/components/chat/MarkdownText";
 import { ChatErrorNotice, TypingIndicator } from "@/components/chat/ChatErrorNotice";
+import { EmptyResponse, ReasoningPart, ToolFallback } from "@/components/chat/message-parts";
 
 import { STORYTELLER_EVENTS, REFRESHING_TOOLS } from "./events";
 
@@ -146,7 +147,9 @@ function AssistantMessage() {
   return (
     <MessagePrimitive.Root className="mb-3 flex justify-start">
       <div className="max-w-[85%] rounded-md bg-muted/60 px-3 py-2 text-sm">
-        <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
+        <MessagePrimitive.Parts
+          components={{ Text: MarkdownText, Reasoning: ReasoningPart, Empty: EmptyResponse, tools: { Fallback: ToolFallback } }}
+        />
       </div>
     </MessagePrimitive.Root>
   );
