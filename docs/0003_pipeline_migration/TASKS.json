@@ -1,0 +1,167 @@
+{
+  "project": "sf-dbi-enrichment-pipeline-migration",
+  "goal": "Move Workers AI permit enrichment from the consuming app's post-hoc permit_tags D1 table into the SF DBI ingestion pipeline, materializing AI-derived tags + extractions as first-class enrich_* fields on the sf_dbi warehouse records, then repoint and retire the app-side enrichment surfaces.",
+  "companions": {
+    "prompt": "docs/0003_pipeline_migration/PROMPT.md",
+    "plan": "docs/0003_pipeline_migration/implementation_plan.md"
+  },
+  "owners": {
+    "pipeline_repo": "ingestion-pipeline Worker team (Phase A, via PROMPT.md)",
+    "app_repo": "mcp-r2-sql (Phases B-D)"
+  },
+  "required_reading": [
+    "docs/0003_pipeline_migration/implementation_plan.md",
+    "docs/0003_pipeline_migration/PROMPT.md",
+    "AGENTS.md (Storyteller domain + Free-text enrichment notes)",
+    "mcp:cloudflare-docs (verify Workers AI batch API, Queues/Workflows, Iceberg schema evolution)"
+  ],
+  "rules": [
+    "Do not start any app-side phase (B-D) until Phase A delivers the hand-off contract (column names/types, on-table vs sidecar, enrich_version, R2 SQL notes).",
+    "Phases B and C are reversible; Phase D (dropping permit_tags/enrichment_runs) is gated on a verified coverage report.",
+    "Keep enriched column names in ONE place (data-platform/schema-data.ts) and reference it everywhere; never scatter hard-coded names.",
+    "All /api/* routes stay zod-openapi typed; preserve existing response shapes when repointing reads.",
+    "Run pnpm cf-typegen after binding/var changes; pnpm lint + tsc green before deploy.",
+    "Respect R2 SQL guardrails (read-only, LIMIT, no OFFSET/window/func(DISTINCT))."
+  ],
+  "status_protocol": "Set status to in_progress when starting a task and done when its acceptance criteria pass. Leave blocked tasks as todo with a note.",
+  "tasks": [
+    {
+      "id": "A-1",
+      "phase": "A-pipeline",
+      "owner": "pipeline_repo",
+      "title": "Implement enrichment in the ingestion pipeline",
+      "description": "Per PROMPT.md: per-permit Workers AI structured extraction (kimi-k2.6 / gpt-oss-120b swappable via MODEL_TAGGER), batch queue API, parse choices[0].message.content defensively, materialize enrich_* fields on sf_dbi (or a permit_enrichment sidecar). Incremental + idempotent via enrich_content_hash + enrich_version.",
+      "depends_on": [],
+      "files": ["(ingestion-pipeline repo)"],
+      "acceptance": [
+        "Fresh load populates enrich_* for new/changed permits",
+        "Unchanged rows are NOT re-called (verified via counts)",
+        "WHERE enrich_is_adu = true returns sensible rows via R2 SQL",
+        "Backfill of ~548k rows is resumable and rate-limit safe",
+        "20-permit spot check shows accurate non-empty tags/summaries"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "A-2",
+      "phase": "A-pipeline",
+      "owner": "pipeline_repo",
+      "title": "Deliver hand-off contract to the app team",
+      "description": "Report exact column names + types (or sidecar table shape + join key), on-table vs sidecar decision, enrich_version value + 'is enriched yet' query, and any R2 SQL gotchas for enriched fields (esp. JSON-array filtering).",
+      "depends_on": ["A-1"],
+      "files": ["(ingestion-pipeline repo)", "docs/0003_pipeline_migration/implementation_plan.md (record the contract)"],
+      "acceptance": ["App team has the column/table contract written down in this folder"],
+      "status": "todo"
+    },
+    {
+      "id": "B-1",
+      "phase": "B-app-read",
+      "owner": "app_repo",
+      "title": "Register enrich_* columns in the app schema description",
+      "description": "Add the enriched fields to src/backend/data-platform/schema-data.ts and docs/cslb-schema.json so R2 SQL typing and the agent's describe_schema tool know about them.",
+      "depends_on": ["A-2"],
+      "files": ["src/backend/data-platform/schema-data.ts", "docs/cslb-schema.json"],
+      "acceptance": ["describe_schema surfaces enrich_* columns", "R2 SQL queries referencing them validate"],
+      "status": "todo"
+    },
+    {
+      "id": "B-2",
+      "phase": "B-app-read",
+      "owner": "app_repo",
+      "title": "Repoint find_permits_by_tag to query enriched columns (dual-read)",
+      "description": "Replace the permitTags D1 select in src/backend/ai/agents/storyteller/tools.ts:202 with an R2 SQL query over enrich_scope_tags / scalar enrich_* via runBlockQuery, falling back to permit_tags when a permit isn't enriched yet.",
+      "depends_on": ["B-1"],
+      "files": ["src/backend/ai/agents/storyteller/tools.ts"],
+      "acceptance": ["find_permits_by_tag returns >= parity vs old D1 path on sample categories", "Falls back gracefully for unenriched permits"],
+      "status": "todo"
+    },
+    {
+      "id": "B-3",
+      "phase": "B-app-read",
+      "owner": "app_repo",
+      "title": "Repoint named queries + add scalar-field queries",
+      "description": "Rewrite nq_permits_by_tag (templates.ts:115) to filter sf_dbi on enrich_* columns (or join the sidecar). Add nq_permits_red_flags, nq_adu_permits, nq_post_disaster_permits, etc. Verify store.ts bindParams *_list passthrough still works for IN(...).",
+      "depends_on": ["B-1"],
+      "files": ["src/backend/storyteller/templates.ts", "src/backend/storyteller/store.ts"],
+      "acceptance": ["New named queries run green via run-block on live R2 SQL", "bindParams list passthrough covered by a test"],
+      "status": "todo"
+    },
+    {
+      "id": "B-4",
+      "phase": "B-app-read",
+      "owner": "app_repo",
+      "title": "Repoint /api/permit-tags reads to be column-backed",
+      "description": "Back permitTagsRouter (GET /api/permit-tags, /api/permit-tags/categories) with R2 SQL over enrich_* columns while preserving the existing {category,count}[] and list response shapes.",
+      "depends_on": ["B-1"],
+      "files": ["src/backend/api/routes/enrich.ts"],
+      "acceptance": ["/api/permit-tags/categories returns column-backed {category,count}[]", "No client-visible response-shape change"],
+      "status": "todo"
+    },
+    {
+      "id": "B-5",
+      "phase": "B-app-read",
+      "owner": "app_repo",
+      "title": "Repoint + extend storyteller frontend filters",
+      "description": "Source tag-filter options from the column-backed /api/permit-tags/categories and add first-class scalar filters (ADU, red-flag, post-disaster, historic review, solar, panel upgrade).",
+      "depends_on": ["B-4"],
+      "files": ["src/frontend/components/storyteller/DashboardRenderer.tsx", "src/frontend/components/storyteller/types.ts"],
+      "acceptance": ["Filters populate from live data", "Scalar enrich filters apply and refetch with skeletons"],
+      "status": "todo"
+    },
+    {
+      "id": "C-1",
+      "phase": "C-stop-writes",
+      "owner": "app_repo",
+      "title": "Deprecate app-side AI tagging endpoints",
+      "description": "Return 410 Gone from POST /api/enrich/sync, /api/enrich/batch, GET /api/enrich/poll for one release; remove any admin/storyteller entry points that triggered them. Stop writing permit_tags / enrichment_runs.",
+      "depends_on": ["B-2", "B-3", "B-4"],
+      "files": ["src/backend/api/routes/enrich.ts", "src/backend/api/index.ts"],
+      "acceptance": ["Write endpoints return 410", "No new permit_tags rows are written"],
+      "status": "todo"
+    },
+    {
+      "id": "C-2",
+      "phase": "C-stop-writes",
+      "owner": "app_repo",
+      "title": "Coverage report gate",
+      "description": "Produce count(enrich_updated_at is not null)/count(*) over sf_dbi and confirm enriched coverage >= parity with permit_tags. This gates Phase D.",
+      "depends_on": ["A-1", "C-1"],
+      "files": ["(diagnostics route or one-off R2 SQL query)"],
+      "acceptance": ["Coverage report shows enriched >= prior tag coverage on the categories the app uses"],
+      "status": "todo"
+    },
+    {
+      "id": "D-1",
+      "phase": "D-cleanup",
+      "owner": "app_repo",
+      "title": "Remove dual-read fallback + app-side tagger",
+      "description": "Delete src/backend/ai/providers/permit-tagger.ts, the enrichRouter, and the permit_tags dual-read fallback in find_permits_by_tag / named queries.",
+      "depends_on": ["C-2"],
+      "files": ["src/backend/ai/providers/permit-tagger.ts", "src/backend/api/routes/enrich.ts", "src/backend/ai/agents/storyteller/tools.ts", "src/backend/storyteller/templates.ts"],
+      "acceptance": ["tsc + lint green with the modules removed", "No remaining permitTags references except the read repoint"],
+      "status": "todo"
+    },
+    {
+      "id": "D-2",
+      "phase": "D-cleanup",
+      "owner": "app_repo",
+      "title": "Drop enrichment tables + config",
+      "description": "Drizzle migration dropping permit_tags + enrichment_runs; remove src/backend/db/schemas/enrichment/* and the schema.ts:29 re-export; remove MODEL_TAGGER from wrangler.jsonc. Run pnpm db:generate + cf-typegen.",
+      "depends_on": ["D-1"],
+      "files": ["src/backend/db/schemas/enrichment/", "src/backend/db/schema.ts", "wrangler.jsonc", "drizzle/ (generated migration)"],
+      "acceptance": ["Migration generated + applied (migrate:remote)", "cf-typegen clean", "build green"],
+      "status": "todo"
+    },
+    {
+      "id": "D-3",
+      "phase": "D-cleanup",
+      "owner": "app_repo",
+      "title": "Docs + deploy",
+      "description": "Update AGENTS.md (enrichment now pipeline-owned; document enrich_* columns + query patterns), annotate docs/0002 enrichment refs, deploy, verify /storyteller filters live, git push.",
+      "depends_on": ["D-2"],
+      "files": ["AGENTS.md", "docs/0002_agentic_homeowner/", "docs/0003_pipeline_migration/implementation_plan.md"],
+      "acceptance": ["AGENTS.md reflects pipeline ownership", "Deployed + live filters verified", "Pushed to origin main"],
+      "status": "todo"
+    }
+  ]
+}

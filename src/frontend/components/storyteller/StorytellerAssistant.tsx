@@ -31,6 +31,7 @@ import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MarkdownText } from "@/components/chat/MarkdownText";
 
 import { STORYTELLER_EVENTS, REFRESHING_TOOLS } from "./events";
 
@@ -135,7 +136,7 @@ function AssistantMessage() {
   return (
     <MessagePrimitive.Root className="mb-3 flex justify-start">
       <div className="max-w-[85%] rounded-md bg-muted/60 px-3 py-2 text-sm">
-        <MessagePrimitive.Parts />
+        <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
       </div>
     </MessagePrimitive.Root>
   );
