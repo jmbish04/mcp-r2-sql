@@ -65,7 +65,10 @@ export function ThreadSwitcher({
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Goal</span>
       <Select value={activeId ?? ""} onValueChange={(v) => v && onSelect(v)}>
         <SelectTrigger className="min-w-[18rem]">
-          <SelectValue placeholder={threads.length ? "Select a goal thread…" : "No goals yet"} />
+          <SelectValue placeholder={threads.length ? "Select a goal…" : "No goals yet"}>
+            {(value) => threads.find((t) => t.id === value)?.title
+              ?? (threads.length ? "Select a goal…" : "No goals yet")}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {threads.map((t) => (
