@@ -9,7 +9,6 @@ import { inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { buildAnalyticsTools } from "@/backend/ai/agents/analytics";
-import { getGoogleMapsApiKey } from "@/backend/utils/secrets";
 import { getDb } from "@/backend/db";
 import { permitTags } from "@db/schemas";
 import {
@@ -59,35 +58,6 @@ export function buildStorytellerTools(env: Env, threadId: string): ToolSet {
           address: input.address, title: input.title ?? input.goalSummary.slice(0, 60),
         });
         return { ok: Boolean(t), thread: t };
-      },
-    }),
-
-    geocode_address: tool({
-      description: "Resolve a San Francisco address to lat/lng + street number/name via Google Geocoding.",
-      inputSchema: z.object({ address: z.string() }),
-      execute: async ({ address }) => {
-        try {
-          const key = await getGoogleMapsApiKey(env);
-          const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
-          url.searchParams.set("address", `${address}, San Francisco, CA`);
-          url.searchParams.set("key", key);
-          const r = await fetch(url.toString());
-          const j = (await r.json()) as any;
-          const res = j.results?.[0];
-          if (!res) {
-            // Surface Google's real status (e.g. REQUEST_DENIED when the
-            // Geocoding API isn't enabled, ZERO_RESULTS, OVER_QUERY_LIMIT).
-            return { ok: false, error: `geocode ${j.status ?? "failed"}${j.error_message ? `: ${j.error_message}` : ""}` };
-          }
-          const comp = (type: string) => res.address_components?.find((c: any) => c.types.includes(type))?.long_name ?? "";
-          return {
-            ok: true, lat: res.geometry?.location?.lat, lng: res.geometry?.location?.lng,
-            streetNumber: comp("street_number"), streetName: comp("route"),
-            normalized: res.formatted_address,
-          };
-        } catch (err) {
-          return { ok: false, error: err instanceof Error ? err.message : String(err) };
-        }
       },
     }),
 
