@@ -88,9 +88,15 @@ swap the whole experience; the floating assistant (bottom-right) drives + edits 
   Fire permits (893e-xam6), Planning-review permits (tyz3-vt28), Fire inspections
   (wb4c-6hwj), permit contacts/firms (cw8k-gwb7), review metrics (5bat-azvb),
   issuance metrics (gzxm-jz5j). `propertySignals({block,lot,streetNumber,streetName,zip})`
-  fetches all in parallel; `dbiWorkload()` is the "how busy is DBI now" issuance
-  baseline (OTC vs in-house avg days). Endpoints: `/signals`, `/dataset/{key}`,
-  `/dbi-workload`, `/datasets`, `/health`. The storyteller agent exposes these as
+  fetches all the property-keyed ones in parallel. The completeness-check
+  (abh5-gwaq) and Planning-review (d4jk-jw33) metrics are application/project-id
+  keyed (no property fields), so they're registered for id lookup but excluded
+  from per-property signals; instead they power the City review-pace baseline:
+  `cityReviewPace()` = DBI issuance turnaround (`dbiWorkload`, OTC vs in-house) +
+  `completenessReviewPace` (% met SLA) + `planningReviewPace` (by stage, % under
+  deadline) — the "is our permit slow or is the City just busy?" signal.
+  Endpoints: `/signals`, `/dataset/{key}`, `/dbi-workload` (→ cityReviewPace),
+  `/datasets`, `/health`. The storyteller agent exposes these as
   two consolidated tools (`property_signals`, `dbi_workload`) to stay lean. These
   are LIVE per-property SODA lookups; warehouse-scale ingestion of the same
   datasets is the pipeline's job (docs/0003). Each dataset's `buildWhere` encodes

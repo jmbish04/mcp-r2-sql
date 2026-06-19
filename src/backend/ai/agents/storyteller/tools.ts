@@ -9,7 +9,7 @@ import { inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { buildAnalyticsTools } from "@/backend/ai/agents/analytics";
-import { dbiWorkload, propertySignals } from "@/backend/data-platform";
+import { cityReviewPace, propertySignals } from "@/backend/data-platform";
 import { getDb } from "@/backend/db";
 import { permitTags } from "@db/schemas";
 import {
@@ -216,11 +216,12 @@ export function buildStorytellerTools(env: Env, threadId: string): ToolSet {
       },
     }),
 
-    // "Is our permit slow, or is DBI just busy?" — current issuance turnaround.
+    // "Is our permit slow, or is the City just busy?" — current review pace:
+    // DBI issuance turnaround + completeness-check pace + Planning review pace.
     dbi_workload: tool({
-      description: "Get DBI's current permit-issuance turnaround baseline (median/avg days, split OTC vs in-house) over a recent window, to judge whether a given permit is slow vs the City's current pace.",
+      description: "Get the City's current permit review-pace baseline over a recent window: DBI issuance turnaround (avg days, OTC vs in-house), DBI completeness-check pace (avg days + % meeting target), and Planning review pace by stage (avg days + % under deadline). Use to judge whether a permit is slow vs the City's current pace.",
       inputSchema: z.object({ windowDays: z.number().optional() }),
-      execute: async ({ windowDays }) => dbiWorkload(windowDays ?? 90),
+      execute: async ({ windowDays }) => cityReviewPace(windowDays ?? 90),
     }),
   };
 

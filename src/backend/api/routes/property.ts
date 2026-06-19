@@ -13,7 +13,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
 import {
   SODA_DATASETS,
-  dbiWorkload,
+  cityReviewPace,
   fetchDataset,
   logOperation,
   propertySignals,
@@ -75,17 +75,18 @@ propertyRouter.openapi(
   },
 );
 
-// GET /api/property/dbi-workload — current DBI issuance turnaround baseline.
+// GET /api/property/dbi-workload — current City review-pace baseline:
+// DBI issuance turnaround + completeness-check pace + Planning review pace.
 propertyRouter.openapi(
   createRoute({
-    method: "get", path: "/dbi-workload", tags: ["Property"], summary: "How busy is DBI right now (issuance turnaround baseline)", operationId: "propDbiWorkload",
+    method: "get", path: "/dbi-workload", tags: ["Property"], summary: "How busy is the City right now (issuance + completeness + planning review pace)", operationId: "propDbiWorkload",
     request: { query: z.object({ windowDays: z.coerce.number().optional() }) },
     responses: { 200: { description: "ok", content: { "application/json": { schema: anyObj } } } },
   }),
   async (c) => {
-    const res = await dbiWorkload(c.req.valid("query").windowDays ?? 90);
-    logOperation(c.env, { source: "soda", operation: "dbi_workload", ok: res.ok, status: res.ok ? 200 : 502, durationMs: 0, rowsReturned: res.byType?.length ?? 0, error: res.error }, c.executionCtx);
-    return c.json(res as Record<string, unknown>, 200);
+    const res = await cityReviewPace(c.req.valid("query").windowDays ?? 90);
+    logOperation(c.env, { source: "soda", operation: "city_review_pace", ok: res.issuance.ok, status: 200, durationMs: 0, rowsReturned: res.issuance.byType?.length ?? 0, error: res.issuance.error }, c.executionCtx);
+    return c.json(res as unknown as Record<string, unknown>, 200);
   },
 );
 

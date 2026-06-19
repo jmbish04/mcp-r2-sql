@@ -33,6 +33,12 @@ export interface PropertyKeys {
   streetNumber?: string;
   streetName?: string;
   zip?: string;
+  /** Building Permit Application number (for application-keyed datasets). */
+  bpa?: string;
+  /** Completeness-check submission id (abh5-gwaq). */
+  submissionId?: string;
+  /** Planning project record id, e.g. 2025-004437PRJ (d4jk-jw33). */
+  altId?: string;
 }
 
 /** Normalize keys: derive parcelNumber (block+lot padded) when possible. */
@@ -188,6 +194,26 @@ export const SODA_DATASETS: SodaDataset[] = [
       return null;
     },
   },
+  {
+    // Application-keyed (submission_id), NOT property-keyed — skipped by
+    // propertySignals; powers the City completeness-check review-pace baseline.
+    key: "completeness_metrics",
+    id: "abh5-gwaq",
+    label: "Permit Completeness Check Review Metrics",
+    description: "Time DBI takes to complete the completeness check on an application (+ whether it met the City target). Keyed by submission_id; used as a City review-pace baseline.",
+    order: "start_date DESC",
+    buildWhere: (k) => (k.submissionId ? `submission_id = ${sq(k.submissionId)}` : null),
+  },
+  {
+    // Planning project-keyed (b1_alt_id), NOT property-keyed — powers the City
+    // planning review-pace baseline.
+    key: "planning_metrics",
+    id: "d4jk-jw33",
+    label: "Planning Project Application Review Metrics",
+    description: "Planning review times by stage (completeness/first/resubmission) + whether each met the deadline. Keyed by project id (b1_alt_id); used as a City review-pace baseline.",
+    order: "start_event_date DESC",
+    buildWhere: (k) => (k.altId ? `b1_alt_id = ${sq(k.altId)}` : null),
+  },
 ];
 
 /** Registry lookup by key. */
@@ -248,7 +274,7 @@ export async function dbiWorkload(windowDays = 90, now: Date = new Date()): Prom
   // Aggregate over recently-issued permits. calendar_days = filed→issued span.
   const res = await sodaQuery("gzxm-jz5j", {
     $select: "otc_ih, count(*) as count, avg(calendar_days) as avg_days",
-    $where: `issued_date > '${since}'`,
+    $where: `issued_date > '${since}' AND calendar_days >= 0`,
     $group: "otc_ih",
   });
   if (!res.ok) return { ok: false, windowDays, since, error: res.error };
@@ -262,4 +288,83 @@ export async function dbiWorkload(windowDays = 90, now: Date = new Date()): Prom
     ? Math.round(byType.reduce((a, b) => a + (b.avgDays ?? 0) * b.count, 0) / totalCount)
     : null;
   return { ok: true, windowDays, since, overall: { count: totalCount, avgDays: weightedAvg, medianDays: null }, byType };
+}
+
+/** ISO start-of-second timestamp `windowDays` ago. */
+function sinceTs(windowDays: number, now: Date): string {
+  return new Date(now.getTime() - windowDays * 86_400_000).toISOString().slice(0, 19);
+}
+
+/**
+ * City completeness-check review pace (abh5-gwaq): recent avg calendar days +
+ * percent meeting the City's target review time. Keyed by met_cal_sla group.
+ */
+export async function completenessReviewPace(windowDays = 90, now: Date = new Date()): Promise<{
+  ok: boolean; count: number; avgDays: number | null; pctMetSla: number | null; error?: string;
+}> {
+  const since = sinceTs(windowDays, now);
+  const res = await sodaQuery("abh5-gwaq", {
+    $select: "met_cal_sla, count(*) as n, avg(calendar_days) as avg_days",
+    $where: `start_date > '${since}' AND calendar_days >= 0`,
+    $group: "met_cal_sla",
+  });
+  if (!res.ok) return { ok: false, count: 0, avgDays: null, pctMetSla: null, error: res.error };
+  let total = 0, met = 0, weighted = 0;
+  for (const r of res.rows) {
+    const n = Number(r.n ?? 0);
+    total += n;
+    if (r.met_cal_sla === true || r.met_cal_sla === "true") met += n;
+    weighted += (r.avg_days != null ? Number(r.avg_days) : 0) * n;
+  }
+  return { ok: true, count: total, avgDays: total ? Math.round(weighted / total) : null, pctMetSla: total ? Math.round((met / total) * 100) : null };
+}
+
+/**
+ * City planning review pace (d4jk-jw33), by stage (completeness check / first
+ * review / resubmission): recent avg days + percent under the deadline.
+ */
+export async function planningReviewPace(windowDays = 90, now: Date = new Date()): Promise<{
+  ok: boolean; byStage: { stage: string; count: number; avgDays: number | null; pctUnderDeadline: number | null }[]; error?: string;
+}> {
+  const since = sinceTs(windowDays, now);
+  const res = await sodaQuery("d4jk-jw33", {
+    $select: "project_stage, metric_outcome, count(*) as n, avg(metric_value) as avg_days",
+    $where: `start_event_date > '${since}' AND metric_value >= 0`,
+    $group: "project_stage, metric_outcome",
+  });
+  if (!res.ok) return { ok: false, byStage: [], error: res.error };
+  const acc: Record<string, { total: number; under: number; weighted: number }> = {};
+  for (const r of res.rows) {
+    const stage = String(r.project_stage ?? "unknown");
+    const n = Number(r.n ?? 0);
+    const a = (acc[stage] ??= { total: 0, under: 0, weighted: 0 });
+    a.total += n;
+    if (/under/i.test(String(r.metric_outcome ?? ""))) a.under += n;
+    a.weighted += (r.avg_days != null ? Number(r.avg_days) : 0) * n;
+  }
+  const byStage = Object.entries(acc).map(([stage, a]) => ({
+    stage, count: a.total,
+    avgDays: a.total ? Math.round(a.weighted / a.total) : null,
+    pctUnderDeadline: a.total ? Math.round((a.under / a.total) * 100) : null,
+  }));
+  return { ok: true, byStage };
+}
+
+/**
+ * Combined "how busy is the City right now" review-pace report: DBI issuance
+ * turnaround + DBI completeness-check pace + Planning review pace. Use to judge
+ * whether a given permit is slow vs the City's CURRENT baseline.
+ */
+export async function cityReviewPace(windowDays = 90, now: Date = new Date()): Promise<{
+  windowDays: number;
+  issuance: Awaited<ReturnType<typeof dbiWorkload>>;
+  completenessCheck: Awaited<ReturnType<typeof completenessReviewPace>>;
+  planningReview: Awaited<ReturnType<typeof planningReviewPace>>;
+}> {
+  const [issuance, completenessCheck, planningReview] = await Promise.all([
+    dbiWorkload(windowDays, now),
+    completenessReviewPace(windowDays, now),
+    planningReviewPace(windowDays, now),
+  ]);
+  return { windowDays, issuance, completenessCheck, planningReview };
 }
