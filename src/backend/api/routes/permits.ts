@@ -21,6 +21,7 @@ import {
   lookupPermitsByAddress,
   lookupPermitsWhere,
   queryR2Sql,
+  withDerivedStatus,
 } from "@/backend/data-platform";
 
 export const permitsRouter = new OpenAPIHono<{ Bindings: Env }>();
@@ -88,7 +89,7 @@ permitsRouter.openapi(
       ok: result.ok,
       mode: body.mode,
       count: result.rows.length,
-      rows: result.rows,
+      rows: result.rows.map((r) => withDerivedStatus(r)),
       error: result.error,
       durationMs: result.durationMs,
     }, 200);
@@ -165,7 +166,7 @@ permitsRouter.openapi(
 
     return c.json({
       ok: errors.length === 0,
-      permit: soda.rows[0] ?? null,
+      permit: soda.rows[0] ? withDerivedStatus(soda.rows[0]) : null,
       addenda: addenda?.rows ?? [],
       firms: firms?.rows ?? [],
       source: { permit: "soda", addenda: "sf_dbi.permit_addenda", firms: "sf_dbi.permit_contractors" },

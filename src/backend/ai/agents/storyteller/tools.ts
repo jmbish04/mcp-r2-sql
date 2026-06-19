@@ -9,6 +9,7 @@ import { inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { buildAnalyticsTools } from "@/backend/ai/agents/analytics";
+import { dbiWorkload, propertySignals } from "@/backend/data-platform";
 import { getDb } from "@/backend/db";
 import { permitTags } from "@db/schemas";
 import {
@@ -192,6 +193,34 @@ export function buildStorytellerTools(env: Env, threadId: string): ToolSet {
         const res = await runAndRegister(env, threadId, `Permits by tag: ${categories.join(", ")}`, sql);
         return { ...res, byCategory };
       },
+    }),
+
+    // Live "watch my property" signals across the DataSF datasets (NOV,
+    // complaints, fire permits, planning review, fire inspections, permit
+    // contacts, review + issuance metrics). One call → the full picture.
+    property_signals: tool({
+      description:
+        "Pull live SF DataSF signals for a specific property: Notices of Violation, DBI complaints, Fire permits, Planning-review permits, Fire inspections, permit contacts (contractors/firms), and review/issuance metrics. Provide block+lot (best) and/or street number+name (+ zip for fire permits). Use 'only' to limit to specific dataset keys.",
+      inputSchema: z.object({
+        block: z.string().optional(),
+        lot: z.string().optional(),
+        streetNumber: z.string().optional(),
+        streetName: z.string().optional(),
+        zip: z.string().optional(),
+        only: z.array(z.string()).optional().describe("Limit to dataset keys, e.g. notices_of_violation, fire_permits, planning_review, fire_inspections, permit_contacts, review_metrics, issuance_metrics, dbi_complaints"),
+      }),
+      execute: async ({ only, ...keys }) => {
+        const out = await propertySignals(keys, { only, limit: 100 });
+        const summary = Object.fromEntries(Object.entries(out.datasets).map(([k, v]) => [k, { ok: v.ok, count: v.count, error: v.error }]));
+        return { ok: true, keys: out.keys, summary, datasets: out.datasets };
+      },
+    }),
+
+    // "Is our permit slow, or is DBI just busy?" — current issuance turnaround.
+    dbi_workload: tool({
+      description: "Get DBI's current permit-issuance turnaround baseline (median/avg days, split OTC vs in-house) over a recent window, to judge whether a given permit is slow vs the City's current pace.",
+      inputSchema: z.object({ windowDays: z.number().optional() }),
+      execute: async ({ windowDays }) => dbiWorkload(windowDays ?? 90),
     }),
   };
 

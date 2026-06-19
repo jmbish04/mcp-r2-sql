@@ -103,6 +103,38 @@ Once R2 SQL coverage of `enrich_*` is verified ≥ parity with `permit_tags`:
 - Coverage report: `count(enrich_updated_at is not null) / count(*)` over `sf_dbi`.
 - `pnpm lint` + `tsc` green; deploy; spot-check `/storyteller` filters live.
 
-## 7. Companion files
+## 7. Additional DataSF datasets to ingest (new signals)
+
+The app now does **live per-property** lookups of these via
+`src/backend/data-platform/soda-datasets.ts` + `/api/property/*` (good for "watch
+my property"). For **cross-property analytics** (dashboards, trends, "DBI
+busyness over time"), the pipeline should also batch-ingest them into `sf_dbi`:
+
+| Signal | DataSF id | Rows | Join key | Use |
+|---|---|---|---|---|
+| Notices of Violation | `nbtm-fbw5` | 514K | block+lot; sort complaint_number+item_sequence_number | contractor/sub oversight during renovation |
+| DBI Complaints | `gm2e-bten` | — | block+lot; links to NOV via complaint_number | full violation picture |
+| Fire Permits (SFFD) | `893e-xam6` | — | permit_zipcode + permit_address | sprinkler-trigger watch |
+| Permits requiring Planning review | `tyz3-vt28` | — | parcel_number (block+lot) | street-facing windows etc. |
+| Fire Inspections (SFFD) | `wb4c-6hwj` | — | address | complaint/routine inspections |
+| Building Permits + Contacts | `cw8k-gwb7` | — | street_number+street_name; permit↔contact | firms/licenses on a property |
+| Permit **Application Review** Metrics | `5bat-azvb` | 448K | block+lot, bpa | per-station plan-review times + met-SLA |
+| Permit **Issuance** Metrics | `gzxm-jz5j` | 145K | block+lot | filed→issued calendar_days (powers DBI-workload) |
+| Permit **Completeness Check** Metrics | `abh5-gwaq` | — | bpa | completeness-review times |
+| Planning Project **Review** Metrics | `d4jk-jw33` | — | record/project id | planning entitlement review times |
+
+Derived signals to compute during ingestion (so they're queryable columns):
+- **derived_status** (active/expired/inactive) — mirror `permit-status.ts`:
+  completed→inactive; filed >365d→expired; filed ≤365d→active.
+- **vs-baseline turnaround** — each permit's filed→issued/review days vs the
+  rolling median for its type + window (the "is it us or is DBI busy?" signal).
+- NOV/complaint **open-against-this-parcel** flags; fire-permit + planning-review
+  presence flags.
+
+Field-type gotchas the app already handles (replicate in SQL): `street_number`
+is **Number** in the metrics datasets (`5bat-azvb`, `gzxm-jz5j`) but **Text** in
+NOV; `lot` is zero-padded text (`005`); `parcel_number` = block + lot.padStart(3).
+
+## 8. Companion files
 - [PROMPT.md](./PROMPT.md) — the self-contained brief for the pipeline Worker agent.
 - [TASKS.json](./TASKS.json) — phased, dependency-ordered task list (app-side + hand-off).
