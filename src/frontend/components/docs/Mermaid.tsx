@@ -31,18 +31,21 @@ export function Mermaid({ chart }: { chart: string }) {
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const reactId = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const idRef = useRef(`mmd-${reactId}`);
+  const renderSeq = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
     setError(false);
     setSvg(null);
+    // Unique id per render so concurrent re-renders (rapid `chart` changes)
+    // never collide in mermaid's internal cache.
+    const renderId = `mmd-${reactId}-${++renderSeq.current}`;
     void loadMermaid()
-      .then((mermaid) => mermaid.render(idRef.current, chart))
+      .then((mermaid) => mermaid.render(renderId, chart))
       .then(({ svg }) => { if (!cancelled) setSvg(svg); })
       .catch(() => { if (!cancelled) setError(true); });
     return () => { cancelled = true; };
-  }, [chart]);
+  }, [chart, reactId]);
 
   if (error) {
     return <pre className="overflow-x-auto rounded-md bg-muted/60 p-3 text-xs">{chart}</pre>;

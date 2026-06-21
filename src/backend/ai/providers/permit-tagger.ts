@@ -125,7 +125,13 @@ function safeJson(s: string): any {
   try {
     return JSON.parse(s);
   } catch {
-    const m = s.match(/\{[\s\S]*\}/);
-    return m ? JSON.parse(m[0]) : { tags: [] };
+    // Fallback: extract the first {...} block. Guard the nested parse too — a
+    // malformed/incomplete match must not throw out of this catch.
+    try {
+      const m = s.match(/\{[\s\S]*\}/);
+      return m ? JSON.parse(m[0]) : { tags: [] };
+    } catch {
+      return { tags: [] };
+    }
   }
 }

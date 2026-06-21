@@ -3,7 +3,7 @@
  * The frontend toggles between threads to switch the whole bespoke experience.
  */
 
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const STORYTELLER_THREADS_TABLE_DESCRIPTION =
@@ -31,8 +31,8 @@ export const storytellerThreads = sqliteTable("storyteller_threads", {
   goalSummary: text("goal_summary"),
   address: text("address"),
   parcelBlockLot: text("parcel_block_lot"),
-  lat: integer("lat"),
-  lng: integer("lng"),
+  lat: real("lat"),
+  lng: real("lng"),
   status: text("status").notNull().default("active"),
   lastMessageAt: integer("last_message_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
