@@ -77,14 +77,14 @@ parcel number, or address. \`propertySignals()\` fetches them all in parallel.
 \`\`\`mermaid
 flowchart TD
   K[block + lot / street / zip] --> PS[propertySignals]
-  PS --> NOV[Notices of Violation\\nnbtm-fbw5]
-  PS --> CMP[DBI Complaints\\ngm2e-bten]
-  PS --> FP[Fire Permits\\n893e-xam6]
-  PS --> PR[Planning-review permits\\ntyz3-vt28]
-  PS --> FI[Fire Inspections\\nwb4c-6hwj]
-  PS --> PC[Permit Contacts/Firms\\ncw8k-gwb7]
-  PS --> RM[Review Metrics\\n5bat-azvb]
-  PS --> IM[Issuance Metrics\\ngzxm-jz5j]
+  PS --> NOV[Notices of Violation<br/>nbtm-fbw5]
+  PS --> CMP[DBI Complaints<br/>gm2e-bten]
+  PS --> FP[Fire Permits<br/>893e-xam6]
+  PS --> PR[Planning-review permits<br/>tyz3-vt28]
+  PS --> FI[Fire Inspections<br/>wb4c-6hwj]
+  PS --> PC[Permit Contacts/Firms<br/>cw8k-gwb7]
+  PS --> RM[Review Metrics<br/>5bat-azvb]
+  PS --> IM[Issuance Metrics<br/>gzxm-jz5j]
 \`\`\`
 
 ## Registry
@@ -131,10 +131,10 @@ homeowner-meaningful lifecycle state from the raw status + filed date.
 flowchart TD
   A[status + date_filed] --> B{status = completed?}
   B -->|yes| INA[inactive]
-  B -->|no| C{terminal?\\ncancel/withdraw/expire/revoke}
+  B -->|no| C{terminal?<br/>cancel/withdraw/expire/revoke}
   C -->|yes| INA
   C -->|no| D{status = filed?}
-  D -->|no| ACT[active\\nissued / in-review]
+  D -->|no| ACT[active<br/>issued / in-review]
   D -->|yes| E{filed > 365 days ago?}
   E -->|yes| EXP[expired]
   E -->|no| ACT
@@ -170,9 +170,9 @@ baselines over a recent window (default 90 days).
 
 \`\`\`mermaid
 flowchart LR
-  CRP[cityReviewPace] --> ISS[DBI Issuance\\ngzxm-jz5j\\nOTC vs in-house avg days]
-  CRP --> COMP[Completeness Check\\nabh5-gwaq\\navg days + % met SLA]
-  CRP --> PLAN[Planning Review\\nd4jk-jw33\\nby stage + % under deadline]
+  CRP[cityReviewPace] --> ISS[DBI Issuance<br/>gzxm-jz5j<br/>OTC vs in-house avg days]
+  CRP --> COMP[Completeness Check<br/>abh5-gwaq<br/>avg days + % met SLA]
+  CRP --> PLAN[Planning Review<br/>d4jk-jw33<br/>by stage + % under deadline]
 \`\`\`
 
 ## Why these two are aggregate-only

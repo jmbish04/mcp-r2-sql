@@ -65,10 +65,10 @@ for the frontend, a Hono API for \`/api/*\`, Durable Objects for the agents, D1
 flowchart TD
   U[Browser: Astro SSR + React islands] -->|/api/*| H[Hono API on the Worker]
   U -->|WebSocket /agents/*| DO[Durable Objects]
-  H --> D1[(D1 + Drizzle\\napp state)]
-  H --> R2[(R2 SQL\\nsf_dbi warehouse)]
-  H --> SODA[DataSF SODA\\nlive per-property]
-  H --> AI[Workers AI\\nvia AI Gateway]
+  H --> D1[(D1 + Drizzle<br/>app state)]
+  H --> R2[(R2 SQL<br/>sf_dbi warehouse)]
+  H --> SODA[DataSF SODA<br/>live per-property]
+  H --> AI[Workers AI<br/>via AI Gateway]
   DO -->|StorytellerAgent| AI
   DO -->|ChatBroker| AI
   DO --> R2

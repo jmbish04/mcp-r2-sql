@@ -81,10 +81,10 @@ pulls the full live picture, with charts and an AI read.
 
 \`\`\`mermaid
 flowchart TD
-  IN[Property input\\nblock/lot · street · zip] --> APP[PropertyWatch island]
+  IN[Property input<br/>block/lot · street · zip] --> APP[PropertyWatch island]
   APP -->|/api/property/signals| CARDS[Signal KPI cards]
   APP -->|/api/property/dbi-workload| CHARTS[Review-pace charts]
-  APP -->|/api/property/insight| AI[AI read\\nWorkers AI]
+  APP -->|/api/property/insight| AI[AI read<br/>Workers AI]
   APP --> TABLES[Per-dataset detail tables]
 \`\`\`
 
@@ -119,9 +119,9 @@ Permit free text (description / addenda / inspection comments) is classified by
 \`\`\`mermaid
 flowchart LR
   TXT[Permit free text] --> CHUNK[Chunk + batch]
-  CHUNK --> AI[Workers AI\\nkimi-k2.6 JSON schema]
+  CHUNK --> AI[Workers AI<br/>kimi-k2.6 JSON schema]
   AI --> PARSE[Parse choices0.message.content]
-  PARSE --> TAGS[(permit_tags\\ncategory to permits)]
+  PARSE --> TAGS[(permit_tags<br/>category to permits)]
   TAGS --> FILTER[find_permits_by_tag filter]
 \`\`\`
 
