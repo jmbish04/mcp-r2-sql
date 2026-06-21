@@ -74,6 +74,7 @@ export const siteConfig: SiteConfig = {
         { href: "/notifications", label: "Notifications" },
         { href: "/admin/config", label: "Config Admin" },
         { href: "/storyteller/context", label: "Agent Context" },
+        { href: "/docs", label: "Docs", external: true },
         { href: "/settings", label: "Settings" },
         { href: "/playbook", label: "Playbook" },
         { href: "/openapi.json", label: "OpenAPI" },
