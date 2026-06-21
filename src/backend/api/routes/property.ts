@@ -18,6 +18,7 @@ import {
   logOperation,
   propertySignals,
 } from "@/backend/data-platform";
+import { propertyInsight } from "@/backend/ai/providers/property-insight";
 
 export const propertyRouter = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -87,6 +88,34 @@ propertyRouter.openapi(
     const res = await cityReviewPace(c.req.valid("query").windowDays ?? 90);
     logOperation(c.env, { source: "soda", operation: "city_review_pace", ok: res.issuance.ok, status: 200, durationMs: 0, rowsReturned: res.issuance.byType?.length ?? 0, error: res.issuance.error }, c.executionCtx);
     return c.json(res as unknown as Record<string, unknown>, 200);
+  },
+);
+
+// POST /api/property/insight — AI homeowner narrative over the property's
+// signals + the City review-pace baseline (one structured Workers AI call).
+propertyRouter.openapi(
+  createRoute({
+    method: "post", path: "/insight", tags: ["Property"], summary: "AI homeowner narrative for a property", operationId: "propInsight",
+    request: { body: { content: { "application/json": { schema: keysQuery.extend({ only: z.array(z.string()).optional() }) } } } },
+    responses: { 200: { description: "ok", content: { "application/json": { schema: z.object({ ok: z.boolean(), insight: anyObj.optional(), error: z.string().optional() }) } } } },
+  }),
+  async (c) => {
+    const body = c.req.valid("json");
+    const [signals, reviewPace] = await Promise.all([
+      propertySignals(body, { only: body.only, limit: 50 }),
+      cityReviewPace(90),
+    ]);
+    try {
+      const insight = await propertyInsight(c.env, {
+        keys: signals.keys as Record<string, unknown>,
+        datasets: Object.fromEntries(Object.entries(signals.datasets).map(([k, v]) => [k, { label: v.label, count: v.count, ok: v.ok, rows: v.rows }])),
+        reviewPace,
+      });
+      logOperation(c.env, { source: "ai", operation: "property_insight", ok: true, status: 200, durationMs: 0, rowsReturned: 0, metadata: { keys: signals.keys } }, c.executionCtx);
+      return c.json({ ok: true, insight: insight as Record<string, unknown> }, 200);
+    } catch (err) {
+      return c.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 200);
+    }
   },
 );
 

@@ -41,6 +41,7 @@ export const siteConfig: SiteConfig = {
   navItems: [
     { href: "/", label: "Warehouse" },
     { href: "/storyteller", label: "Storyteller" },
+    { href: "/property", label: "Property Watch" },
     { href: "/workbench", label: "Workbench" },
     { href: "/vetting", label: "Vetting" },
   ],

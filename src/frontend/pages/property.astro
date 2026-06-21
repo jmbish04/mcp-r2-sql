@@ -1,0 +1,31 @@
+---
+/**
+ * /property — Property Watch. A homeowner enters their SF property and sees live
+ * DataSF signals (Notices of Violation, complaints, fire permits, planning
+ * review, fire inspections, contractors), the City review-pace baseline, and an
+ * AI read of what to watch. Backed by /api/property/*.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { PropertyWatch } from "@/components/property";
+---
+
+<BaseLayout
+  title="Property Watch"
+  description="Watch a San Francisco property live — Notices of Violation, complaints, fire permits, planning-review triggers, inspections, and the contractors on record, with an AI read and the City's current permit review pace."
+>
+  <main class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-10">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">🛡️</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Property Watch</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Keep a close eye on your home during a renovation. Pull live SF DBI / Fire / Planning records for a
+        property — violations, complaints, fire & sprinkler activity, planning-review triggers, inspections,
+        and the contractors on record — and see how your permits compare to the City's current review pace.
+      </p>
+    </header>
+
+    <PropertyWatch client:load />
+  </main>
+</BaseLayout>
