@@ -29,6 +29,7 @@ import { WorkflowsAgent } from "./backend/ai/agents/WorkflowsAgent";
 import { ArtifactAgent } from "./backend/ai/agents/ArtifactAgent";
 import { ChatBroker } from "./backend/ai/agents/ChatBroker";
 import { NotificationsAgent } from "./backend/ai/agents/NotificationsAgent";
+import { StorytellerAgent } from "./backend/ai/agents/storyteller";
 
 // Re-export Durable Object classes for the Workers runtime.
 export {
@@ -38,6 +39,7 @@ export {
   ArtifactAgent,
   ChatBroker,
   NotificationsAgent,
+  StorytellerAgent,
 };
 
 /** True for paths the Hono API owns (REST + OpenAPI doc surfaces). */

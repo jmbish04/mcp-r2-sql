@@ -1,0 +1,640 @@
+/**
+ * @fileoverview GENERATED from docs/0002_agentic_homeowner/agentic_sf_context.seed.json.
+ * Seed rows for the agentic_sf_context table (idempotently loaded via the seed route).
+ */
+
+export interface AgenticContextSeedRow {
+  category: string;
+  topic: string;
+  content: string;
+  data_signals: string;
+  homeowner_action: string;
+  priority: number;
+}
+
+export const AGENTIC_SF_CONTEXT_SEED: AgenticContextSeedRow[] = [
+  {
+    "category": "regulatory_navigation",
+    "topic": "OTC vs. in-house review",
+    "content": "Many SF projects qualify for Over-the-Counter (OTC) issuance (water heaters, like-for-like fixtures, some kitchen/bath), while structural, facade, ADU, and change-of-use work routes to in-house plan review that takes months. Misclassifying your scope is the single biggest avoidable delay.",
+    "data_signals": "building_permits.permit_type_definition vs days_to_issue; OTC-eligible types should show single-digit days_to_issue medians, in-house types weeks-to-months.",
+    "homeowner_action": "Before filing, match your scope to comparable issued permits' permit_type_definition and confirm whether peers got OTC; structure scope to stay OTC-eligible where legitimate.",
+    "priority": 5
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "Site permit vs. full permit strategy",
+    "content": "A 'site permit' approves the overall project shell first, then details follow as addenda. It can start the clock sooner on big projects but creates a long addenda tail where most real delay (and discretion) lives.",
+    "data_signals": "building_permits.site_permit=true joined to permit_addenda count and processing_hours; site-permit projects with many is_stuck_addenda reveal where the true timeline hides.",
+    "homeowner_action": "If your project uses a site permit, budget time and scrutiny for the addenda phase, not just initial issuance.",
+    "priority": 4
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "Planning vs. Building are different gates",
+    "content": "DBI issues building permits, but Planning Department review (zoning, neighborhood notification, discretionary review) is a separate gate that stalls otherwise-simple jobs, especially facade/window changes in historic or RH zones.",
+    "data_signals": "permit_addenda.station/department flags routing to Planning; hold_description mentioning Planning or neighborhood notification.",
+    "homeowner_action": "For exterior or use changes, assume a Planning path and check whether comparable permits in your neighborhood hit Planning holds.",
+    "priority": 4
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "Window replacement is rarely 'simple' in SF",
+    "content": "Like-for-like windows can be OTC, but changes to material, configuration, or street-facing facades in historic districts can trigger Planning review and neighbor notice, turning a weekend job into a multi-month process.",
+    "data_signals": "building_permits where description ~ window + supervisor_district/neighborhood; compare days_to_issue distribution in historic-heavy neighborhoods vs others.",
+    "homeowner_action": "Specify true like-for-like to preserve OTC eligibility; if changing the look, expect Planning and plan accordingly.",
+    "priority": 3
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "Change of use is a hidden trap",
+    "content": "Converting a garage, in-law, or commercial space changes occupancy classification and triggers far heavier review (fire, accessibility, parking) than a cosmetic remodel of the same square footage.",
+    "data_signals": "building_permits.description indicating use/occupancy change vs days_to_issue and addenda volume; these permits cluster at the high end of timelines.",
+    "homeowner_action": "If your project changes how a space is legally used, scope and budget for full in-house review, not a remodel timeline.",
+    "priority": 4
+  },
+  {
+    "category": "permit_process",
+    "topic": "days_to_issue is your primary baseline metric",
+    "content": "days_to_issue (filed to issued) is the cleanest single proxy for friction. Always read it as a distribution by permit type and neighborhood, never as a citywide average, because mix dominates the mean.",
+    "data_signals": "building_permits.days_to_issue percentiles grouped by permit_type_definition and neighborhoods_analysis_boundaries.",
+    "homeowner_action": "Pull the median and 90th percentile for your exact permit type and neighborhood to set realistic expectations and detect when your own permit is abnormal.",
+    "priority": 5
+  },
+  {
+    "category": "permit_process",
+    "topic": "Addenda are where projects actually stall",
+    "content": "On larger permits, initial issuance is fast but addenda (revisions, deferred details) accumulate review time. is_stuck_addenda and in_hold are the real bottleneck indicators.",
+    "data_signals": "permit_addenda.is_stuck_addenda=true, in_hold=true, hold_description, processing_hours by station.",
+    "homeowner_action": "Track each addendum's hold status; a stuck addendum, not the base permit, is usually what is delaying your job.",
+    "priority": 5
+  },
+  {
+    "category": "permit_process",
+    "topic": "Plan-check stations and routing",
+    "content": "Permits move through review stations (structural, mechanical, fire, disability access, Planning). A permit's path through stations explains its timeline; bottleneck stations recur across projects.",
+    "data_signals": "permit_addenda.station + processing_hours + plan_checked_by; aggregate mean processing_hours per station to find chronic bottlenecks.",
+    "homeowner_action": "Identify which station is holding your permit and direct follow-up there rather than at a generic DBI counter.",
+    "priority": 4
+  },
+  {
+    "category": "permit_process",
+    "topic": "SLA compliance signals process health",
+    "content": "DBI review types carry service-level targets. Whether reviews meet their SLA (met_cal_sla) tells you if your permit is being handled normally or is an outlier in either direction.",
+    "data_signals": "bp_review.review_type, sla_days, met_cal_sla; rate of met_cal_sla=false by review_type and over time.",
+    "homeowner_action": "If your review blows the SLA, you have a concrete basis to escalate; if it beats SLA on a complex job, ask why.",
+    "priority": 4
+  },
+  {
+    "category": "permit_process",
+    "topic": "Hold descriptions are free intelligence",
+    "content": "hold_description text reveals the actual reason a permit is paused (missing calcs, Planning referral, fee, neighbor appeal). Recurring hold reasons by permit type are predictable and preventable.",
+    "data_signals": "permit_addenda.hold_description text clustering by permit_type_definition.",
+    "homeowner_action": "Pre-empt the most common hold reasons for your permit type before filing to avoid a predictable stall.",
+    "priority": 4
+  },
+  {
+    "category": "permit_process",
+    "topic": "Review results and resubmittal loops",
+    "content": "Each plan-check round can return corrections, and resubmittal loops multiply timeline. Multiple review_results cycles on the same addendum signal a scope or drawing-quality problem, often fixable by a better-prepared submittal.",
+    "data_signals": "permit_addenda.review_results history and count of review cycles per addendum; bp_review.review_results.",
+    "homeowner_action": "If you see repeated correction cycles, invest in complete drawings up front rather than iterating against the counter.",
+    "priority": 3
+  },
+  {
+    "category": "permit_process",
+    "topic": "Filer/applicant identity matters",
+    "content": "Who files (owner, architect, contractor, or expediter) shapes routing and accountability. Consistent association between a filer and anomalously smooth outcomes is part of the expediter pattern reformers examined.",
+    "data_signals": "Group permits by applicant/filer where available; correlate with processing_hours and met_cal_sla beyond what scope explains.",
+    "homeowner_action": "Know who is filing in your name and what their track record looks like in the data.",
+    "priority": 3
+  },
+  {
+    "category": "cost_benchmarks",
+    "topic": "estimated_cost is declared, not actual",
+    "content": "building_permits.estimated_cost is the applicant-declared valuation used for fees, and it is systematically understated. It is useful for relative comparison and fee logic, not as a true construction cost.",
+    "data_signals": "building_permits.estimated_cost by permit_type and neighborhood; compare your declared value to peer medians.",
+    "homeowner_action": "Use estimated_cost only to gauge fee exposure and to spot peers; get real bids for actual budgeting.",
+    "priority": 3
+  },
+  {
+    "category": "cost_benchmarks",
+    "topic": "SF remodel cost magnitude",
+    "content": "SF construction runs roughly 1.5-2.5x the national average; full kitchens and baths commonly exceed six figures, and ADUs frequently land between $300k-$500k+ all-in once soft costs and SF labor are included.",
+    "data_signals": "building_permits.estimated_cost for adu=true and kitchen/bath descriptions as a floor (understated) reference; compare across districts.",
+    "homeowner_action": "Treat declared permit values as a floor and pad real budgets heavily for SF labor and soft costs.",
+    "priority": 3
+  },
+  {
+    "category": "cost_benchmarks",
+    "topic": "Soft costs and time are the hidden budget",
+    "content": "In SF the carrying cost of delay (rent elsewhere, financing, design fees during reviews) can rival hard construction costs. Timeline risk is a cost line, not a footnote.",
+    "data_signals": "days_to_issue + addenda processing duration translated into months of carrying cost for your project size.",
+    "homeowner_action": "Model delay months from comparable permits into your budget as real dollars before committing.",
+    "priority": 4
+  },
+  {
+    "category": "cost_benchmarks",
+    "topic": "Cost per project type benchmarking",
+    "content": "Declared valuations cluster by permit_type_definition, letting you sanity-check whether a contractor's bid or declared value is wildly off the local norm for that work.",
+    "data_signals": "building_permits.estimated_cost percentiles by permit_type_definition.",
+    "homeowner_action": "Flag bids that imply a declared value far outside the local distribution for that permit type and ask why.",
+    "priority": 2
+  },
+  {
+    "category": "cost_benchmarks",
+    "topic": "Fees scale with declared value",
+    "content": "DBI and related fees are driven by estimated_cost, so valuation choices have direct fee and audit consequences; large gaps between declared value and real scope invite later scrutiny.",
+    "data_signals": "building_permits.estimated_cost vs scope/description plausibility; outliers low for their described work.",
+    "homeowner_action": "Declare honestly to avoid fee true-ups, penalties, or permit invalidation down the line.",
+    "priority": 2
+  },
+  {
+    "category": "contractor_vetting",
+    "topic": "License must match the role and work",
+    "content": "permit_contractors records the firm, license, and role on each permit. A general remodel pulled under a specialty license, or work done under an owner-builder permit to dodge contractor licensing, is a classic red flag.",
+    "data_signals": "permit_contractors.license1, role, firm_name vs the permit's scope/description; owner-builder permits on substantial work.",
+    "homeowner_action": "Verify your contractor's license class matches your scope and that they (not you as owner-builder) are named on the permit.",
+    "priority": 5
+  },
+  {
+    "category": "contractor_vetting",
+    "topic": "Track record by issuance and inspection outcomes",
+    "content": "A contractor's history across permits \u2014 how often their permits issue cleanly, pass inspection on first try, and avoid complaints \u2014 is a far better signal than reviews. Repeat performance is visible in the data.",
+    "data_signals": "permit_contractors joined to building_inspections.result (first-pass rate) and complaints linked to their permits/addresses.",
+    "homeowner_action": "Pull your prospective contractor's prior SF permits and check first-pass inspection rates and complaint linkage before signing.",
+    "priority": 5
+  },
+  {
+    "category": "contractor_vetting",
+    "topic": "Volume firms and the expediter overlap",
+    "content": "Some firms pull unusually high permit volumes and consistently fast issuance. That can mean genuine expertise \u2014 or reliance on the expediter ecosystem that SF investigations have scrutinized. Volume plus anomalous speed deserves a second look, not automatic trust.",
+    "data_signals": "permit_contractors.firm_name with high permit counts AND low median days_to_issue on complex types vs the type baseline.",
+    "homeowner_action": "If a firm is sold to you as 'fast with DBI,' ask specifically how, and compare their speed to legitimate peers on the same permit type.",
+    "priority": 4
+  },
+  {
+    "category": "contractor_vetting",
+    "topic": "Abandoned or stalled addenda as a warning",
+    "content": "A contractor who leaves addenda stuck or unresolved across multiple jobs may be over-extended or disengaged after collecting deposits. This is visible before you hire them.",
+    "data_signals": "permit_contractors joined to permit_addenda.is_stuck_addenda; share of a firm's addenda left stuck/in_hold.",
+    "homeowner_action": "Avoid contractors with a pattern of stuck/abandoned addenda across prior clients' permits.",
+    "priority": 3
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Gravity-defying issuance speed",
+    "content": "SF DBI scandals centered on permits that moved faster than their complexity should allow. A high estimated_cost, multi-station, structurally significant permit issued in days \u2014 far below peers \u2014 is the canonical pattern to scrutinize (not proof, but a flag).",
+    "data_signals": "building_permits.days_to_issue far below the neighborhood/permit_type percentile WHILE estimated_cost is high and addenda/stations are many; permit_addenda.processing_hours unusually low with is_stuck_addenda=false on high-value permits.",
+    "homeowner_action": "If your own permit (or a comparable you're benchmarking against) is suspiciously fast for its complexity, document it; do not assume speed equals legitimacy.",
+    "priority": 5
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Plan-checker favoritism fingerprint",
+    "content": "Favoritism shows as a specific plan-checker repeatedly clearing a specific firm's permits with abnormally low processing time and few correction cycles, diverging from that checker's behavior on other firms. SF probes examined exactly this kind of channeling.",
+    "data_signals": "permit_addenda.plan_checked_by x firm_name: mean processing_hours and review-cycle count for one checker-firm pair vs that checker's overall distribution and that firm's other checkers.",
+    "homeowner_action": "If a contractor steers your permit to a named checker promising speed, treat it as a risk signal and keep an independent record.",
+    "priority": 5
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Expediter fingerprint via clustered speed",
+    "content": "The SF 'permit expediter' ecosystem became a corruption vector when access, not merit, drove outcomes. A fingerprint is a cluster of otherwise-unrelated permits sharing fast routing and low processing_hours that correlate with a common firm or filer rather than with simpler scope.",
+    "data_signals": "Group permits by firm/filer; within group, low processing_hours and high met SLA that are NOT explained by permit_type_definition simplicity; compare group to type baseline.",
+    "homeowner_action": "Understand whether your speed advantage comes from preparation or from access; the former is durable and defensible, the latter is risky.",
+    "priority": 5
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Inspector clean-result anomaly",
+    "content": "An inspector with a near-100% pass rate on a contractor's jobs while showing normal failure rates elsewhere is an anomaly worth flagging. Inspector bribery in SF historically surfaced as implausibly clean results on specific relationships.",
+    "data_signals": "building_inspections/plumbing_inspections: inspector x firm pass-rate vs that inspector's global pass-rate and the firm's pass-rate under other inspectors.",
+    "homeowner_action": "If the same inspector always clears your contractor instantly, ask for a different inspector or document the pattern.",
+    "priority": 5
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Hold-then-sudden-release pattern",
+    "content": "A permit that sits in_hold with no documented resolution, then clears abruptly without corresponding corrected submittals, can indicate intervention rather than legitimate fix. The audit trail should show WHY a hold lifted.",
+    "data_signals": "permit_addenda: in_hold=true with no new review_results/resubmittal, then is_stuck_addenda flips to false with near-zero added processing_hours.",
+    "homeowner_action": "Demand documentation of what resolved any hold on your permit; an undocumented release is worth questioning.",
+    "priority": 4
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Selective enforcement via complaints",
+    "content": "Corruption can run in reverse \u2014 complaints and NOVs weaponized against some owners while similar conditions are ignored for connected ones. Disparate complaint resolution speed for similar issues is a documented concern pattern.",
+    "data_signals": "complaints.complaint_description similarity vs resolution_days and NOV issuance, segmented by neighborhood/contractor; large variance for similar complaints.",
+    "homeowner_action": "If you face an NOV, benchmark how similar complaints elsewhere were resolved to gauge whether you're being treated normally.",
+    "priority": 4
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Owner-builder used to obscure the real builder",
+    "content": "Filing as owner-builder removes the licensed-contractor accountability layer; SF has seen it used to mask who actually performs work and to sidestep oversight. Substantial scope under owner-builder is a flag.",
+    "data_signals": "permit_contractors absent or owner-builder flag on permits with high estimated_cost or structural scope.",
+    "homeowner_action": "Be cautious if a contractor asks YOU to pull an owner-builder permit for their work; it shifts liability to you and reduces oversight.",
+    "priority": 4
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Round-number or repeated declared valuations",
+    "content": "Systematic under-valuation or identical round-number estimated_cost across a filer's permits can indicate fee avoidance or boilerplate filings that mask real scope \u2014 a softer integrity signal.",
+    "data_signals": "building_permits.estimated_cost: repeated identical/round values per firm; declared value implausibly low for the described scope.",
+    "homeowner_action": "Ensure your declared valuation honestly reflects scope; chronic under-valuation can void permits or invite later enforcement.",
+    "priority": 2
+  },
+  {
+    "category": "corruption_red_flags",
+    "topic": "Speed advantage that requires a specific intermediary",
+    "content": "The clearest behavioral red flag for a homeowner is being told a result is only achievable through a particular person, firm, or off-book payment. Legitimate speed comes from complete submittals, not gatekeepers.",
+    "data_signals": "Qualitative, cross-checked against data: does the promised speed exceed the legitimate type/neighborhood baseline by a wide margin?",
+    "homeowner_action": "Decline pay-to-play arrangements; if speed is promised only via a specific channel, that is the warning, and the data baseline is your reality check.",
+    "priority": 5
+  },
+  {
+    "category": "inspector_culture",
+    "topic": "First-pass inspection rates vary by inspector",
+    "content": "Inspectors differ in strictness and consistency. Knowing an inspector's typical result distribution helps you prepare and tells you whether an unusual result is about your work or about the inspector.",
+    "data_signals": "building_inspections.inspector x result distribution; inspection_description context.",
+    "homeowner_action": "Prep for the known tendencies of the inspector assigned to your area, and treat outlier results in context.",
+    "priority": 3
+  },
+  {
+    "category": "inspector_culture",
+    "topic": "Inspection result codes carry meaning",
+    "content": "Results like passed, partial, corrections-required, or re-inspection each imply different next steps and delay. Reading the inspection_description tells you what specifically failed and what to fix.",
+    "data_signals": "building_inspections.result + inspection_description per permit.",
+    "homeowner_action": "Use the inspection_description to fix the exact cited item before re-inspection rather than guessing.",
+    "priority": 3
+  },
+  {
+    "category": "inspector_culture",
+    "topic": "Re-inspection cadence and delay",
+    "content": "Failed inspections create re-inspection loops, and scheduling gaps between attempts add real calendar time in SF. The number of inspection events per permit is a quiet timeline driver.",
+    "data_signals": "count of building_inspections events per permit and gaps between inspection dates.",
+    "homeowner_action": "Minimize re-inspection loops by ensuring all cited corrections are done before calling for the next inspection.",
+    "priority": 3
+  },
+  {
+    "category": "inspector_culture",
+    "topic": "Plumbing and electrical have their own tracks",
+    "content": "Trade inspections (plumbing, electrical) run on separate permits and inspector pools from building inspections, and a remodel needs all tracks to clear before final. Forgetting a trade sign-off strands a project at the finish line.",
+    "data_signals": "plumbing_inspections and electrical_permits/plumbing_permits joined to the parent building permit; missing trade finals.",
+    "homeowner_action": "Track every trade permit's inspection status separately; all must reach final for your project to close out.",
+    "priority": 3
+  },
+  {
+    "category": "inspector_culture",
+    "topic": "Inspector assignment and rotation",
+    "content": "Whether the same inspector keeps returning to a contractor's jobs (vs. healthy rotation) is itself a signal; rotation was a reform response to relationship-based risk.",
+    "data_signals": "building_inspections.inspector repeat-assignment rate per contractor/area vs expected rotation.",
+    "homeowner_action": "Note if one inspector is always paired with your contractor and weigh that in context.",
+    "priority": 3
+  },
+  {
+    "category": "timeline_expectations",
+    "topic": "OTC days vs in-house months",
+    "content": "OTC-eligible permits often issue same-day to a couple weeks; in-house review routinely runs 2-6+ months, and complex or appealed projects far longer. The gap between these realities is the core SF expectation-setting fact.",
+    "data_signals": "building_permits.days_to_issue bimodal split by OTC-eligible vs in-house permit_type_definition.",
+    "homeowner_action": "Place your project on the correct side of this split early so your schedule and financing are realistic.",
+    "priority": 5
+  },
+  {
+    "category": "timeline_expectations",
+    "topic": "ADUs are systematically slow",
+    "content": "Despite state ADU-streamlining mandates, SF ADU permits remain among the slowest due to layered review and discretionary friction, even though law caps certain review periods. Plan for the lived timeline, not the statutory ideal.",
+    "data_signals": "building_permits.adu=true days_to_issue and addenda durations vs non-ADU baselines; in_hold rates on ADU permits.",
+    "homeowner_action": "Budget ADU timelines from actual local ADU permit data, not from streamlining promises.",
+    "priority": 4
+  },
+  {
+    "category": "timeline_expectations",
+    "topic": "Discretionary Review can add a year",
+    "content": "A single neighbor can trigger Discretionary Review at Planning, adding many months to a year to otherwise routine exterior or expansion projects. This is a uniquely SF timeline bomb.",
+    "data_signals": "permit_addenda.hold_description / station referencing DR or appeal; extreme days_to_issue outliers in dense neighborhoods.",
+    "homeowner_action": "For visible exterior work, engage neighbors early to reduce DR risk; check DR frequency in your neighborhood from the data.",
+    "priority": 4
+  },
+  {
+    "category": "timeline_expectations",
+    "topic": "Seasonality and backlog drift",
+    "content": "Review timelines drift with DBI staffing and backlog; the same permit type can take materially longer in some periods than others. Recent trend matters more than historical average.",
+    "data_signals": "building_permits.days_to_issue trend by filed-date month/quarter; bp_review.met_cal_sla rate over time.",
+    "homeowner_action": "Set expectations from the most recent 6-12 months of comparable permits, not all-time figures.",
+    "priority": 3
+  },
+  {
+    "category": "timeline_expectations",
+    "topic": "Completion lag after issuance",
+    "content": "Getting a permit issued is not the finish line; the spread between issued and completed dates, plus required inspections, defines true project duration and is often underestimated.",
+    "data_signals": "building_permits dates filed/issued/completed spread; days between issued and completed.",
+    "homeowner_action": "Plan your whole timeline from filed to completed, including inspection cycles, not just to issuance.",
+    "priority": 3
+  },
+  {
+    "category": "timeline_expectations",
+    "topic": "The addenda tail can exceed initial review",
+    "content": "On site-permit and large projects, the cumulative addenda phase often exceeds the initial issuance time, so a fast first issuance can mask a long total path.",
+    "data_signals": "Sum permit_addenda processing duration vs initial days_to_issue for site_permit=true projects.",
+    "homeowner_action": "Judge total timeline by addenda burden, not by how fast the base permit issued.",
+    "priority": 3
+  },
+  {
+    "category": "neighborhood_context",
+    "topic": "Historic districts add review",
+    "content": "Neighborhoods with historic or special-design oversight see slower exterior approvals and more Planning involvement. Your neighborhood largely determines how hard a given scope will be.",
+    "data_signals": "building_permits.neighborhoods_analysis_boundaries x days_to_issue for exterior/facade descriptions.",
+    "homeowner_action": "Check your neighborhood's exterior-permit timeline distribution before committing to a facade-changing design.",
+    "priority": 3
+  },
+  {
+    "category": "neighborhood_context",
+    "topic": "Supervisor district as a political lens",
+    "content": "Permit volume, complaint activity, and enforcement intensity vary by supervisor_district, reflecting both housing stock and local politics. District context helps interpret what's normal where you live.",
+    "data_signals": "building_permits.supervisor_district x volume, days_to_issue, complaint rate.",
+    "homeowner_action": "Benchmark against your own district, since citywide norms can mislead.",
+    "priority": 2
+  },
+  {
+    "category": "neighborhood_context",
+    "topic": "Complaint hotspots reveal enforcement climate",
+    "content": "Neighborhoods with high complaint and NOV density signal active enforcement (or active neighbor scrutiny), raising the chance your project draws attention.",
+    "data_signals": "complaints.analysis_neighborhood density and NOV rate by neighborhood.",
+    "homeowner_action": "In high-complaint areas, keep your permit and posting impeccable to avoid neighbor-triggered enforcement.",
+    "priority": 3
+  },
+  {
+    "category": "neighborhood_context",
+    "topic": "Comparable-project mining by block",
+    "content": "The most predictive benchmark is recent permits for similar scope on or near your block, which capture local soil, zoning, and reviewer realities better than any citywide stat.",
+    "data_signals": "building_permits filtered to nearby addresses/neighborhood + similar permit_type_definition + description.",
+    "homeowner_action": "Build your expectations from the handful of most-comparable nearby recent permits.",
+    "priority": 4
+  },
+  {
+    "category": "neighborhood_context",
+    "topic": "Soil, slope, and seismic by area",
+    "content": "SF's geology (liquefaction zones, steep lots, soft-story buildings) makes structural scope and cost highly location-dependent, which also explains legitimate timeline variation by neighborhood.",
+    "data_signals": "building_permits structural descriptions x neighborhood x days_to_issue and estimated_cost.",
+    "homeowner_action": "Factor your area's structural realities into both budget and timeline expectations.",
+    "priority": 2
+  },
+  {
+    "category": "data_signals",
+    "topic": "Percentiles over averages",
+    "content": "DBI timelines are heavily right-skewed; a few catastrophic permits drag averages up. Medians and 90th percentiles describe reality, and your position within the distribution is the real question.",
+    "data_signals": "building_permits.days_to_issue p50/p90 by permit_type_definition and neighborhood; flag own permit's percentile rank.",
+    "homeowner_action": "Always ask where your permit sits in the distribution, not how it compares to the average.",
+    "priority": 4
+  },
+  {
+    "category": "data_signals",
+    "topic": "Anomaly = deviation from a peer cohort",
+    "content": "A meaningful signal is always relative to a tight peer cohort (same type, neighborhood, cost band, complexity), because raw extremes are usually just complex projects, not misconduct.",
+    "data_signals": "Define cohort by permit_type_definition + neighborhood + estimated_cost band + station count, then z-score days_to_issue and processing_hours within cohort.",
+    "homeowner_action": "Trust signals that compare like-with-like; dismiss alarms that ignore project complexity.",
+    "priority": 5
+  },
+  {
+    "category": "data_signals",
+    "topic": "Entity-pair concentration metrics",
+    "content": "Corruption-relevant patterns surface as concentration between entity pairs \u2014 checker-firm, inspector-contractor \u2014 measured as how skewed one party's favorable outcomes are toward one counterparty versus their overall behavior.",
+    "data_signals": "Concentration/Herfindahl-style ratio on permit_addenda.plan_checked_by x firm and inspections inspector x firm; flag pairs far above baseline co-occurrence.",
+    "homeowner_action": "Treat extreme entity-pair concentration as a question to investigate, not a verdict.",
+    "priority": 5
+  },
+  {
+    "category": "data_signals",
+    "topic": "processing_hours as the misconduct-sensitive metric",
+    "content": "processing_hours (actual review labor logged) is more sensitive than calendar days because it can reveal a permit cleared with implausibly little actual review effort relative to its complexity.",
+    "data_signals": "permit_addenda.processing_hours normalized by station and permit complexity; flag high-value permits with near-zero processing_hours and is_stuck_addenda=false.",
+    "homeowner_action": "When benchmarking integrity, weight processing_hours anomalies over calendar-speed alone.",
+    "priority": 5
+  },
+  {
+    "category": "data_signals",
+    "topic": "SLA-beat anomalies cut both ways",
+    "content": "Consistently missing SLA signals dysfunction; consistently and dramatically beating SLA on complex work for one channel can signal favoritism. Both tails of met_cal_sla are informative.",
+    "data_signals": "bp_review.met_cal_sla rate and margin by review_type, plan_checker, and firm; flag extreme positive margins concentrated on specific pairs.",
+    "homeowner_action": "Look at who beats SLA, not just who misses it.",
+    "priority": 4
+  },
+  {
+    "category": "data_signals",
+    "topic": "Complaint-to-NOV conversion as fairness check",
+    "content": "The rate and speed at which complaints convert to NOVs, segmented by neighborhood and owner type, exposes uneven enforcement that is otherwise invisible.",
+    "data_signals": "complaints: NOV-issued rate and resolution_days conditioned on complaint_description severity, by neighborhood.",
+    "homeowner_action": "Use enforcement-rate comparisons to judge whether your treatment is typical.",
+    "priority": 3
+  },
+  {
+    "category": "data_signals",
+    "topic": "Cross-table address joins surface hidden history",
+    "content": "Joining permits, complaints, and inspections on address/parcel reconstructs a property's full regulatory story, including open permits and unresolved violations a seller may not disclose.",
+    "data_signals": "Join building_permits + complaints + building_inspections by address; flag open permits and unresolved NOVs.",
+    "homeowner_action": "Run a full address history before buying or starting work on any SF property.",
+    "priority": 5
+  },
+  {
+    "category": "data_signals",
+    "topic": "Open/expired permit detection",
+    "content": "Permits issued but never completed or finaled become open or expired liabilities that block sales and refinancing and can force costly retroactive work.",
+    "data_signals": "building_permits with issued date but null/old completed date and no final inspection; status fields indicating expiry.",
+    "homeowner_action": "Identify and resolve any open or expired permits on your property before transacting.",
+    "priority": 4
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Benchmark before you file",
+    "content": "The single highest-leverage move is establishing the legitimate baseline for your exact scope, neighborhood, and cost band before filing, so you can recognize both bad service and improper shortcuts.",
+    "data_signals": "Cohort query on building_permits + bp_review for your scope; p50/p90 days_to_issue and SLA rates.",
+    "homeowner_action": "Pull your benchmark cohort first and carry those numbers into every DBI interaction.",
+    "priority": 5
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Vet the contractor in the data, not just references",
+    "content": "Before signing, verify license-to-scope match and pull the contractor's SF permit, inspection, and complaint history; references are curated, the data is not.",
+    "data_signals": "permit_contractors history + first-pass inspection rate + complaint linkage + stuck-addenda share.",
+    "homeowner_action": "Make a data-backed contractor check a precondition of hiring.",
+    "priority": 5
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Set monitoring on your address and permit",
+    "content": "Turning a one-time lookup into a saved monitor catches new complaints, NOVs, holds, inspector assignments, or status changes early, when you can still act.",
+    "data_signals": "Scheduled query on complaints/permit_addenda/inspections filtered to your address and permit number; alert on new rows or status flips.",
+    "homeowner_action": "Set up monitoring on your property and active permit for the life of the project.",
+    "priority": 4
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Document the timeline contemporaneously",
+    "content": "Keeping your own dated record of filings, holds, hold-release reasons, and inspections gives you leverage to escalate and a defense if integrity questions arise later.",
+    "data_signals": "Mirror permit_addenda hold/release events and bp_review dates into your own log.",
+    "homeowner_action": "Log every status change with date and stated reason as it happens.",
+    "priority": 3
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Escalate with data, not emotion",
+    "content": "When a permit blows its SLA or stalls without documented cause, a factual escalation citing comparable timelines and the missed SLA is far more effective than frustration.",
+    "data_signals": "bp_review.met_cal_sla=false + cohort p50 days_to_issue showing your permit as an outlier.",
+    "homeowner_action": "Escalate to the right station/manager with specific SLA and benchmark figures in hand.",
+    "priority": 4
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Refuse pay-to-play and rely on the baseline",
+    "content": "The durable defense against SF's documented permit-corruption history is to insist on the legitimate path and use the data baseline as your reality check on any promised shortcut.",
+    "data_signals": "Compare any promised speed/outcome to the legitimate cohort baseline; flag gaps that imply non-merit access.",
+    "homeowner_action": "Decline off-book shortcuts and let benchmark data tell you what's genuinely achievable.",
+    "priority": 5
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Use complaints data defensively before neighbors do",
+    "content": "Knowing your neighborhood's complaint patterns and keeping postings, hours, and scope compliant reduces the chance a neighbor-triggered complaint stalls your project.",
+    "data_signals": "complaints.complaint_description common types by neighborhood; pre-empt the frequent triggers.",
+    "homeowner_action": "Proactively comply with the most-complained-about issues in your area.",
+    "priority": 3
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "Reforms shifted but did not erase discretion",
+    "content": "Post-2020 SF reforms added oversight, rotation, and transparency to plan check and inspection, reducing but not eliminating discretionary points where favoritism historically lived. Vigilance remains warranted at the remaining discretionary gates.",
+    "data_signals": "Trend in entity-pair concentration and processing_hours anomalies before vs after reform-era dates to see whether patterns persist.",
+    "homeowner_action": "Don't assume reforms guarantee fairness; keep checking the same anomaly signals on current permits.",
+    "priority": 3
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "Post-disaster rebuild triggers current-code upgrades",
+    "content": "Rebuilding after fire/storm/disaster rarely restores the old structure as-was: current building, energy, seismic, and accessibility codes apply, often expanding scope and cost well beyond 'replace what burned'. Stressed owners are vulnerable to contractors who understate this.",
+    "data_signals": "building_permits.description ~ rebuild/fire/replace + permit_tags category post_disaster:fire|storm and code_upgrade_required; compare estimated_cost and days_to_issue vs ordinary alterations.",
+    "homeowner_action": "Budget and schedule for full code-upgrade scope from comparable rebuild permits, and treat any 'just like before, fast and cheap' pitch as a red flag.",
+    "priority": 5
+  },
+  {
+    "category": "timeline_expectations",
+    "topic": "Disaster rebuilds: speed pressure vs reality",
+    "content": "Owners displaced after a disaster need speed, which unscrupulous actors exploit with unrealistic timelines. The data shows what rebuild-class permits actually take so expectations are grounded, not sold.",
+    "data_signals": "permit_tags post_disaster:* joined to building_permits days_to_issue + addenda duration; p50/p90 timeline for rebuild-class permits in the neighborhood.",
+    "homeowner_action": "Anchor your timeline to the median/p90 of comparable rebuild permits and require contractors to justify any promise far below it.",
+    "priority": 4
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Disaster owners: scam-resistance checklist",
+    "content": "High stress + urgency is the classic exploitation setup (inflated bids, fake licenses, deposit-and-vanish). Data-backed vetting and benchmarking are the defense.",
+    "data_signals": "permit_contractors license-to-scope + first-pass inspection rate + stuck-addenda share; cost benchmarks for the rebuild scope.",
+    "homeowner_action": "Before signing post-disaster, verify license-to-scope in the data, benchmark the bid against comparable permits, and never pay large deposits to a firm with a thin or troubled SF record.",
+    "priority": 5
+  },
+  {
+    "category": "permit_process",
+    "topic": "Phasing a large remodel by component",
+    "content": "Breaking a big remodel into phases (roof, solar, windows, electrical panel, kitchen/bath, landscaping) lets owners sequence cost and risk. Each component has its own typical timeline, cost, and review path visible in comparable permits.",
+    "data_signals": "permit_tags component categories (roof:*, solar:pv, windows:*, electrical:panel_upgrade, kitchen:*, bath:*, landscaping) joined to building/electrical/plumbing permits days_to_issue + cost by neighborhood.",
+    "homeowner_action": "Plan phases using the real per-component timeline/cost distribution from nearby comparable permits, not a single lump estimate.",
+    "priority": 4
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "Street-facing vs non-street-facing windows",
+    "content": "Street-facing window/skylight changes (material, size, configuration) commonly trigger Planning/historic review in SF, while interior-facing or true in-kind swaps often stay OTC. The distinction lives in the free-text description, not a column.",
+    "data_signals": "permit_tags windows:street_facing vs windows:inkind/new + planning:historic_review; days_to_issue gap between street-facing and non-street-facing window permits.",
+    "homeowner_action": "For street-facing openings, assume Planning/historic review and check comparable street-facing window permits' timelines before designing.",
+    "priority": 4
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "Skylights: in-kind vs new + setback rules",
+    "content": "In-kind skylight replacement is usually routine, but a new skylight (or one within a code-defined distance of a property line) can require fire-rating changes or trigger added review. Whether code forced a change on replacement is often only stated in the description/addenda.",
+    "data_signals": "permit_tags skylight:inkind vs skylight:new_setback; addenda hold_description mentioning setback/fire rating; compare timelines.",
+    "homeowner_action": "Confirm whether your skylight is in-kind or counts as new/within setback, since that determines review burden and cost.",
+    "priority": 3
+  },
+  {
+    "category": "permit_process",
+    "topic": "Electrical panel amperage upgrades",
+    "content": "Service upgrades (e.g. 100A to 200A) for EV/solar/heat-pump loads are common phased components with their own permit + inspection path; utility coordination can add time beyond DBI.",
+    "data_signals": "permit_tags electrical:panel_upgrade on electrical_permits days_to_issue + cost; inspection results for service upgrades.",
+    "homeowner_action": "Sequence a panel upgrade early if later phases (solar, EV, induction) depend on it, and benchmark its timeline separately.",
+    "priority": 3
+  },
+  {
+    "category": "cost_benchmarks",
+    "topic": "Kitchen/bath: in-kind vs moving walls/plumbing",
+    "content": "An in-kind kitchen/bath refresh is far cheaper and faster than relocating walls, plumbing, or gas, which escalates scope, review, and trade-permit count. The free text distinguishes them.",
+    "data_signals": "permit_tags kitchen:inkind|reconfig, bath:inkind|reconfig; estimated_cost + days_to_issue + count of associated trade permits per class.",
+    "homeowner_action": "Decide in-kind vs reconfiguration deliberately; the data shows the cost/time premium of moving plumbing or walls.",
+    "priority": 3
+  },
+  {
+    "category": "regulatory_navigation",
+    "topic": "25% slope and other Planning Commission triggers",
+    "content": "Conditions like a >25% downslope/upslope lot, work in special-use or historic districts, or large expansions can escalate a project to SF Planning Commission or Discretionary Review \u2014 major timeline and cost risk that often surfaces only in addenda/description text.",
+    "data_signals": "permit_tags planning:slope_25pct|planning_commission|historic_review|setback_variance; extreme days_to_issue outliers carrying these tags.",
+    "homeowner_action": "Check whether comparable projects on similar lots triggered Planning Commission/DR before committing to a backyard or expansion design.",
+    "priority": 4
+  },
+  {
+    "category": "neighborhood_context",
+    "topic": "Historic-landmark review on your block",
+    "content": "Designated landmarks and historic districts add design review that reshapes feasible scope and timeline; whether a permit hit historic review is frequently stated in free text rather than a flag.",
+    "data_signals": "permit_tags planning:historic_review density by neighborhood/block; days_to_issue for historic-reviewed exterior permits.",
+    "homeowner_action": "If your block shows frequent historic review, design exterior changes to that constraint from the start.",
+    "priority": 3
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Remote/out-of-state owner: timeline + red-flag dashboard",
+    "content": "Owners managing an SF remodel from afar can't drop by DBI, so they need the data to surface required permits, realistic timelines, costs, and red flags (stalls, NOVs, unpermitted work, suspicious speed) without being on-site.",
+    "data_signals": "thread monitors on the parcel/contractor across building_permits, permit_addenda holds, complaints/NOVs, inspections; permit_tags red_flag:* on associated permits.",
+    "homeowner_action": "Set up parcel + contractor monitoring and a red-flag view so distance doesn't mean blind spots.",
+    "priority": 4
+  },
+  {
+    "category": "homeowner_actions",
+    "topic": "Remote owner: verify trade permits all closed before final",
+    "content": "From out of state it's easy to assume a project is 'done' when trade (electrical/plumbing) permits or final inspections remain open, which blocks closeout, sale, or refinance.",
+    "data_signals": "join building permit to child electrical/plumbing permits + final inspection results; flag open/expired permits on the parcel.",
+    "homeowner_action": "Before releasing final payment from afar, confirm every trade permit reached final inspection in the data.",
+    "priority": 4
+  },
+  {
+    "category": "data_signals",
+    "topic": "Free text holds the persona-6/7/8 signals",
+    "content": "Component type (in-kind vs new), street-facing, slope/Planning triggers, post-disaster rebuild, and phasing intent are expressed in description/addenda/inspection prose, not structured columns. Workers-AI tagging turns that prose into queryable categories.",
+    "data_signals": "permit_tags(category, permit_number, source) populated by the enrichment pipeline from building_permits.description, permit_addenda comments, building/plumbing inspection_description.",
+    "homeowner_action": "Use tag filters (not just permit_type) to find truly comparable projects and to surface review/timeline triggers.",
+    "priority": 5
+  },
+  {
+    "category": "data_signals",
+    "topic": "Phased-build detection",
+    "content": "A sequence of permits on one parcel over time (roof, then solar, then kitchen) signals a phased build; recognizing the pattern lets the tool present a realistic multi-phase plan with per-phase benchmarks.",
+    "data_signals": "multiple permits per parcel/address over time + permit_tags phased_build + component tags; order by filed_date.",
+    "homeowner_action": "Model your project as the same phase sequence neighbors used, with each phase benchmarked from their permits.",
+    "priority": 3
+  },
+  {
+    "category": "contractor_vetting",
+    "topic": "Component-specialist track record",
+    "content": "Phasing means hiring the right specialist per component (roofer, solar, electrician). Each has a distinct, data-visible SF track record for that exact work, better than a generalist reference.",
+    "data_signals": "permit_contractors role/license filtered to the component (via permit_tags) + first-pass inspection rate for that component.",
+    "homeowner_action": "Vet each phase's contractor on their record for that specific component, not their overall reputation.",
+    "priority": 3
+  },
+  {
+    "category": "data_signals",
+    "topic": "Inspector comments as a quality/red-flag source",
+    "content": "Inspection_description free text can reveal recurring correction themes, unpermitted-work findings, or unusually terse clean results that, in aggregate, inform both quality expectations and integrity checks.",
+    "data_signals": "enrichment tags over building/plumbing inspection_description (e.g. unpermitted_legalization, nov_abatement, code_upgrade_required); inspector x outcome anomalies.",
+    "homeowner_action": "Read aggregated inspector-comment themes for your area/contractor to anticipate likely corrections and spot anomalies.",
+    "priority": 3
+  }
+];

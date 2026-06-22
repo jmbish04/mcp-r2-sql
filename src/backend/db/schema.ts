@@ -25,6 +25,8 @@ export * from "./schemas/mcp-logs";
 export * from "./schemas/dashboard-metrics";
 export * from "./schemas/data-platform";
 export * from "./schemas/config";
+export * from "./schemas/storyteller";
+export * from "./schemas/enrichment";
 
 // ---------------------------------------------------------------------------
 // Domain tables

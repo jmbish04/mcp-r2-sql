@@ -60,6 +60,10 @@
         "name": "NOTIFICATIONS_AGENT",
         "class_name": "NotificationsAgent",
       },
+      {
+        "name": "STORYTELLER_AGENT",
+        "class_name": "StorytellerAgent",
+      },
     ],
   },
   "worker_loaders": [
@@ -89,6 +93,11 @@
       "deleted_classes": ["OrchestratorAgent", "GoogleDocsAgent"],
       "new_sqlite_classes": ["ChatBroker", "NotificationsAgent"],
     },
+    // v3 introduces the per-thread homeowner StorytellerAgent (AIChatAgent DO).
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["StorytellerAgent"],
+    },
   ],
   "vars": {
     // --- R2 Data Catalog / R2 SQL warehouse (see docs/cslb-schema.json) ---
@@ -103,6 +112,7 @@
     "MODEL_CHAT": "@cf/openai/gpt-oss-120b",
     "MODEL_EXTRACT": "@cf/openai/gpt-oss-120b",
     "MODEL_DRAFT": "@cf/openai/gpt-oss-120b",
+    "MODEL_TAGGER": "@cf/moonshotai/kimi-k2.6",
     "MODEL_TRANSCRIBE": "@cf/openai/whisper-large-v3-turbo",
     "DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
   },
@@ -165,11 +175,11 @@
       "store_id": "8c42fa70938644e0a8a109744467375f",
       "secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN",
     },
-    {
-      "binding": "JULES_API_KEY",
-      "store_id": "8c42fa70938644e0a8a109744467375f",
-      "secret_name": "JULES_API_KEY",
-    },
+//    {
+//      "binding": "JULES_API_KEY",
+//      "store_id": "8c42fa70938644e0a8a109744467375f",
+//      "secret_name": "JULES_API_KEY",
+//    },
     {
       "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
       "store_id": "8c42fa70938644e0a8a109744467375f",
@@ -226,11 +236,11 @@
       "store_id": "8c42fa70938644e0a8a109744467375f",
       "secret_name": "GEMINI_API_KEY",
     },
-    {
-      "binding": "NOTEBOOKLM_AUTH_TOKEN",
-      "store_id": "8c42fa70938644e0a8a109744467375f",
-      "secret_name": "NOTEBOOKLM_AUTH_TOKEN",
-    },
+//    {
+//      "binding": "NOTEBOOKLM_AUTH_TOKEN",
+//      "store_id": "8c42fa70938644e0a8a109744467375f",
+//      "secret_name": "NOTEBOOKLM_AUTH_TOKEN",
+//    },
   ],
   //  wrangler vectorize create mcp-r2-sql-career-memory --preset @cf/baai/bge-large-en-v1.5
   "vectorize": [

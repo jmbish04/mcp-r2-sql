@@ -1,0 +1,9 @@
+---
+/**
+ * /docs — redirects to the default landing page (first page of the first
+ * category).
+ */
+import { DEFAULT_DOC_SLUG } from "@/lib/docs";
+
+return Astro.redirect(`/docs/${DEFAULT_DOC_SLUG}`, 302);
+---

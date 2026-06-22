@@ -1,0 +1,20 @@
+---
+/**
+ * /docs/<slug> — a single documentation page. Each page has its own dedicated
+ * URL (slugs may nest, e.g. /docs/data-platform/r2-sql). Unknown slugs 404.
+ */
+import DocsLayout from "@/layouts/DocsLayout.astro";
+import { DocPage } from "@/components/docs/DocPage";
+import { getDoc } from "@/lib/docs";
+
+const slug = Astro.params.slug ?? "";
+const doc = getDoc(slug);
+
+if (!doc) {
+  return new Response("Doc not found", { status: 404 });
+}
+---
+
+<DocsLayout title={doc.title} description={doc.summary} activeSlug={doc.slug}>
+  <DocPage client:only="react" title={doc.title} lastUpdated={doc.lastUpdated} content={doc.content} />
+</DocsLayout>

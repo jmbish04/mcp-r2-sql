@@ -40,6 +40,8 @@ export const siteConfig: SiteConfig = {
   },
   navItems: [
     { href: "/", label: "Warehouse" },
+    { href: "/storyteller", label: "Storyteller" },
+    { href: "/property", label: "Property Watch" },
     { href: "/workbench", label: "Workbench" },
     { href: "/vetting", label: "Vetting" },
   ],
@@ -71,6 +73,8 @@ export const siteConfig: SiteConfig = {
       items: [
         { href: "/notifications", label: "Notifications" },
         { href: "/admin/config", label: "Config Admin" },
+        { href: "/storyteller/context", label: "Agent Context" },
+        { href: "/docs", label: "Docs", external: true },
         { href: "/settings", label: "Settings" },
         { href: "/playbook", label: "Playbook" },
         { href: "/openapi.json", label: "OpenAPI" },

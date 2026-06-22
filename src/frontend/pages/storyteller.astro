@@ -1,0 +1,32 @@
+---
+/**
+ * /storyteller — the agentic, thread-based data-storytelling tool for SF
+ * homeowners. Each goal is its own thread: the StorytellerAgent interviews the
+ * homeowner, records an evolving plan, and renders a bespoke DBI-permit
+ * dashboard. The floating assistant (bottom-right) drives and edits it.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { StorytellerApp } from "@/components/storyteller";
+---
+
+<BaseLayout
+  title="Storyteller"
+  description="An agentic, goal-driven storytelling tool over SF DBI permit data — the assistant interviews you about your home project, then builds a bespoke interactive dashboard tailored to your goal."
+>
+  <main class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-10">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">🏠</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Storyteller</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Tell the assistant your goal as a San Francisco homeowner — planning a remodel, vetting a
+        contractor, decoding permit timelines, or watching for DBI red flags. It builds a bespoke
+        dashboard from live DBI permit data, and you can refine it anytime by chat. Switch between
+        goals to swap the entire experience.
+      </p>
+    </header>
+
+    <StorytellerApp client:only="react" />
+  </main>
+</BaseLayout>

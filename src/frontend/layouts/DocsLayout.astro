@@ -1,0 +1,60 @@
+---
+/**
+ * DocsLayout — standalone shell for the docs site. Deliberately does NOT carry
+ * over the main app navbar/footer; it has its own slim header + a fixed sidebar.
+ * Dark theme is locked the same way as BaseLayout.
+ */
+import HeadSEO from "@/components/HeadSEO.astro";
+import DocsSidebar from "@/components/docs/DocsSidebar.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  activeSlug: string;
+}
+const { title, description, activeSlug } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <HeadSEO title={`${title} · Docs`} description={description} />
+    <script is:inline>
+      (() => {
+        try {
+          const stored = localStorage.getItem("theme");
+          const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.classList.toggle("dark", stored ? stored === "dark" : prefersDark);
+        } catch {}
+      })();
+    </script>
+  </head>
+  <body class="overscroll-none antialiased">
+    <div class="bg-background flex min-h-svh flex-col">
+      <!-- Slim docs header (NOT the main app nav) -->
+      <header class="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/40 bg-background/80 px-5 backdrop-blur">
+        <a href="/docs" class="flex items-center gap-2 font-semibold tracking-tight">
+          <span class="text-lg">📚</span> R2 SQL Docs
+        </a>
+        <a href="/" class="text-sm text-muted-foreground hover:text-foreground">← Back to app</a>
+      </header>
+
+      <div class="mx-auto flex w-full max-w-7xl flex-1">
+        <!-- Sidebar -->
+        <aside class="sticky top-14 hidden h-[calc(100svh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-border/40 md:block">
+          <DocsSidebar activeSlug={activeSlug} />
+        </aside>
+
+        <!-- Content -->
+        <main class="min-w-0 flex-1">
+          <!-- Mobile sidebar (collapsible) -->
+          <details class="border-b border-border/40 px-5 py-2 md:hidden">
+            <summary class="cursor-pointer text-sm text-muted-foreground">Browse docs</summary>
+            <DocsSidebar activeSlug={activeSlug} />
+          </details>
+          <slot />
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

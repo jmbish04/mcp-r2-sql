@@ -8,6 +8,8 @@ export * from "./guard";
 export * from "./r2sql";
 export * from "./catalog";
 export * from "./soda";
+export * from "./soda-datasets";
+export * from "./permit-status";
 export * from "./schema-info";
 export * from "./log";
 export * from "./vetting";

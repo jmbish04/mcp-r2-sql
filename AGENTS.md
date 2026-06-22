@@ -45,6 +45,85 @@ This repo now hosts the **R2 Data Catalog SQL analytics MVP** (see
   workerd's V8 cannot parse (removing it breaks build AND dev with
   "Invalid or unexpected token").
 
+# Storyteller — agentic homeowner data-storytelling (docs/0002_agentic_homeowner)
+
+An agentic, **thread-based** ("one goal = one thread") bespoke storytelling tool
+over SF DBI permit data. The `StorytellerAgent` interviews a homeowner, records
+an evolving plan in D1, and on approval renders a custom dashboard of interactive
+charts + narrative + red-flag callouts. Page: `/storyteller`. Switch threads to
+swap the whole experience; the floating assistant (bottom-right) drives + edits it.
+
+- **Agent**: `StorytellerAgent` DO (`AIChatAgent`, binding `STORYTELLER_AGENT`,
+  migration `v3`, re-exported from `worker.ts`). Frontend binds one DO instance
+  per thread: `useAgent({ agent: "storyteller-agent", name: threadId })`. Tools in
+  `src/backend/ai/agents/storyteller/{prompt,tools,index}.ts`: set_goal,
+  geocode_address, list_context, save_data_plan, propose_dashboard,
+  approve_dashboard, update_dashboard_block, set_filters, find_similar_permits,
+  inspector_profile, contractor_reputation, permit_timeline, redflag_scan,
+  find_permits_by_tag + spread `buildAnalyticsTools(env)`. `onChatMessage` uses
+  `this.name` as the threadId.
+- **HYBRID render contract** — `src/backend/storyteller/spec.ts`: declarative
+  `DashboardSpec` (JSON) is primary (block allowlist `BLOCK_TYPES` + chart
+  allowlist `CHART_FAMILIES` + `QueryRef` + filter binding); `validateSpec()`
+  guards it and `bindParams()` binds `:name` → escaped literal (`*_numbers`/
+  `*_list` pass through raw). The custom-chart **escape hatch** returns INERT
+  artifacts only — AI picks a catalog chart family+encoding via
+  `generateStructuredOutput` (`POST /api/storyteller/threads/:id/custom`); never
+  browser-executed code. Templates: `src/backend/storyteller/templates.ts`
+  (`${ns}` placeholders + `:param` bindings). Store/state machine:
+  `src/backend/storyteller/store.ts` (`runBlockQuery` resolves named|inline → bind
+  → SQL guard → R2 SQL; `seedStorytellerGlobals()` chunks by 8 for the D1 100-param
+  cap).
+- **D1 schema**: `db/schemas/storyteller/` (threads, messages, thread-data-plans,
+  dashboard-specs, agentic-sf-context [78-row context seed], named-queries,
+  thread-filters) + `db/schemas/enrichment/` (permit-tags, enrichment-runs).
+  `threads.goalCategory` → `config_options(goal_category).value`.
+- **APIs**: `/api/storyteller/*` (threads/plans/specs/filters/named-queries/
+  run-block/custom/seed-globals/health), `/api/context/*` (agentic_sf_context
+  CRUD — the self-serve **Agent Context** admin at `/storyteller/context`),
+  `/api/enrich/*` + `/api/permit-tags`.
+- **Live property signals** (`src/backend/data-platform/soda-datasets.ts`,
+  `/api/property/*`): generic `sodaQuery(datasetId,…)` + a registry of watched
+  DataSF datasets — Notices of Violation (nbtm-fbw5), DBI complaints (gm2e-bten),
+  Fire permits (893e-xam6), Planning-review permits (tyz3-vt28), Fire inspections
+  (wb4c-6hwj), permit contacts/firms (cw8k-gwb7), review metrics (5bat-azvb),
+  issuance metrics (gzxm-jz5j). `propertySignals({block,lot,streetNumber,streetName,zip})`
+  fetches all the property-keyed ones in parallel. The completeness-check
+  (abh5-gwaq) and Planning-review (d4jk-jw33) metrics are application/project-id
+  keyed (no property fields), so they're registered for id lookup but excluded
+  from per-property signals; instead they power the City review-pace baseline:
+  `cityReviewPace()` = DBI issuance turnaround (`dbiWorkload`, OTC vs in-house) +
+  `completenessReviewPace` (% met SLA) + `planningReviewPace` (by stage, % under
+  deadline) — the "is our permit slow or is the City just busy?" signal.
+  Endpoints: `/signals`, `/dataset/{key}`, `/dbi-workload` (→ cityReviewPace),
+  `/datasets`, `/health`. The storyteller agent exposes these as
+  two consolidated tools (`property_signals`, `dbi_workload`) to stay lean. These
+  are LIVE per-property SODA lookups; warehouse-scale ingestion of the same
+  datasets is the pipeline's job (docs/0003). Each dataset's `buildWhere` encodes
+  its own field types (street_number is Number in metrics datasets, Text elsewhere).
+- **Derived permit status** (`src/backend/data-platform/permit-status.ts`,
+  `derivePermitStatus`/`withDerivedStatus`): completed→inactive; filed >365d→expired
+  (lapsed); filed ≤365d→active. Attached as `derived_status`+`filed_age_days` on
+  `/api/permits/lookup` + `/detail`. Use this, not raw `status`, for "is it live?".
+- **Free-text enrichment**: Workers AI `@cf/moonshotai/kimi-k2.6` (var
+  `MODEL_TAGGER`) JSON-schema tagging in `ai/providers/permit-tagger.ts` →
+  `permit_tags` (category→permits), consumable as filters. Kimi returns the OpenAI
+  shape `res.choices[0].message.content` (a JSON string); `max_tokens:16000`.
+- **Frontend** (`src/frontend/components/storyteller/`): `StorytellerApp`
+  (top-level island: ThreadSwitcher + DashboardRenderer + StorytellerAssistant;
+  active thread in `?thread=`; reloads on the `storyteller:refresh` CustomEvent
+  the assistant fires after dashboard-mutating tools — see `events.ts`
+  `REFRESHING_TOOLS`). `DashboardRenderer` has the data-scope FilterBar with the
+  pending-changes Save alert (buffer draft → `setThreadFilters` → bump refreshKey
+  → bound blocks refetch with skeletons). `BlockRenderer` dispatches every block
+  type; `charts/` is the full shadcn Recharts catalog on ONE blue style profile
+  (`lib/chart-style.ts`, high-contrast white value labels — use `var(--foreground)`,
+  NEVER `hsl(var(--foreground))`) plus `GanttBlock`/`TimelineStepsBlock` (ISO
+  `YYYY-MM-DD` dates only). Badge colors are centralized in `lib/dbi-badges.ts`
+  (`useDbiBadges()` hook; `BadgeStyle` is not `CSSProperties` — cast at the call
+  site). NOTE: this is base-ui (not radix) — use `<DialogTrigger render={<…/>} />`
+  not `asChild`, and `Select` `onValueChange` yields `string | null`.
+
 # Agent Workspace Overview
 
 Welcome to the `core-template-cfw-assets-astro-shadcn` template. This is a unified full-stack template combining Cloudflare Workers (Backend & Assets) with Astro and React + Shadcn/ui (Frontend).

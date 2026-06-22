@@ -35,8 +35,12 @@ import { seedRouter } from "./routes/seed";
 import { settingsRouter } from "./routes/settings";
 import { aiRouter } from "./routes/ai";
 import { configOptionsRouter } from "./routes/config-options";
+import { contextRouter } from "./routes/context";
 import { diagnosticsRouter } from "./routes/diagnostics";
+import { enrichRouter, permitTagsRouter } from "./routes/enrich";
+import { storytellerRouter } from "./routes/storyteller";
 import { permitsRouter } from "./routes/permits";
+import { propertyRouter } from "./routes/property";
 import { r2Router } from "./routes/r2";
 import { tasksRouter } from "./routes/tasks";
 import { vettingRouter } from "./routes/vetting";
@@ -135,9 +139,14 @@ app.route("/api/seed", seedRouter);
 // Data-platform APIs (R2 SQL warehouse + SF permits + diagnostics)
 app.route("/api/r2", r2Router);
 app.route("/api/permits", permitsRouter);
+app.route("/api/property", propertyRouter);
 app.route("/api/diagnostics", diagnosticsRouter);
 app.route("/api/ai", aiRouter);
 app.route("/api/config-options", configOptionsRouter);
+app.route("/api/storyteller", storytellerRouter);
+app.route("/api/context", contextRouter);
+app.route("/api/enrich", enrichRouter);
+app.route("/api/permit-tags", permitTagsRouter);
 app.route("/api/vetting", vettingRouter);
 
 app.route("/api/__client-error", clientErrorRouter);
