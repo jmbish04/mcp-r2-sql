@@ -123,11 +123,33 @@
       "remote": true,
     },
   ],
+  // This Worker MUST create its own D1 database. These two values are deliberately
+  // NOT a real database, so `wrangler deploy` and `wrangler d1 migrations apply`
+  // both fail until someone replaces them. That failure is the feature.
+  //
+  // MEASURED 2026-11-02, and the reason this is a placeholder rather than a real id:
+  // `database_id` here held d555f8ce-77c9-4c82-be80-de95b8d9c003, which is
+  // core-guardian's PRODUCTION database — the account's spend governor, holding
+  // billable_usage, alert_rules, cf_billing_*, workers_ai_daily_neurons,
+  // ai_routing_decisions, spend_rollup and about 115 more tables (123 tables,
+  // 400.2 MB). The uuid came from the template this repo was scaffolded from.
+  // `database_name` above said "mcp-r2-sql", which is cosmetic: only the uuid binds,
+  // so five Workers shared that one database while each config claimed its own name.
+  //
+  // This Worker was deleted from the account on 2026-11-02 and the 9 tables it owned
+  // (query_logs, enrichment_runs, agentic_sf_context and six storyteller_*) were
+  // dropped from core-guardian's database. The repo is still redeployable, so the
+  // placeholder is what stops `migrate:remote` writing them straight back in.
+  //
+  // To set this project up:
+  //   npx wrangler d1 create mcp-r2-sql
+  //   # put the returned name and uuid below, then:
+  //   npx wrangler d1 migrations apply DB --remote
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "mcp-r2-sql",
-      "database_id": "d555f8ce-77c9-4c82-be80-de95b8d9c003",
+      "database_name": "REPLACE_WITH_YOUR_OWN_D1_DATABASE",
+      "database_id": "replace-me-run-wrangler-d1-create",
       "migrations_dir": "drizzle",
     },
   ],
